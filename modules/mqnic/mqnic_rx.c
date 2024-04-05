@@ -108,6 +108,8 @@ int mqnic_open_rx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 		goto fail;
 	}
 
+	printk(KERN_INFO "mqnic_open_rx_ring  size = %i, desc_block_size = %i\n", size, desc_block_size);
+
 	return 0;
 
 fail:
@@ -308,6 +310,8 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 	int budget = napi_budget;
 	u32 len;
 
+	printk(KERN_INFO "mqnic_process_rx_cq\n");
+
 	if (unlikely(!priv || !priv->port_up))
 		return done;
 
@@ -383,8 +387,10 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 
 		rx_ring->packets++;
 		rx_ring->bytes += le16_to_cpu(cpl->len);
+		printk(KERN_INFO "mqnic_process_rx_cq  packets = %llu, new_packet_len = %i\n", rx_ring->packets, le16_to_cpu(cpl->len));
 
-rx_drop:
+
+	rx_drop:
 		done++;
 
 		cq_cons_ptr++;
@@ -429,6 +435,8 @@ int mqnic_poll_rx_cq(struct napi_struct *napi, int budget)
 	int done;
 
 	done = mqnic_process_rx_cq(cq, budget);
+
+	printk(KERN_INFO "mqnic_poll_rx_cq done = %i\n", done);
 
 	if (done == budget)
 		return done;

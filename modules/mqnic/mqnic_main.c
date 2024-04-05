@@ -39,8 +39,8 @@ MODULE_PARM_DESC(link_status_poll,
 
 #ifdef CONFIG_PCI
 static const struct pci_device_id mqnic_pci_id_table[] = {
-	{PCI_DEVICE(0x1234, 0x1001)},
-	{PCI_DEVICE(0x5543, 0x1001)},
+	{PCI_DEVICE(0x1234, 0x9034)},
+	{PCI_DEVICE(0x5543, 0x9034)},
 	{0 /* end */ }
 };
 
@@ -252,6 +252,7 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 #endif
 
 	// Enumerate registers
+	dev_info(dev, "device registers:");
 	mqnic->rb_list = mqnic_enumerate_reg_block_list(mqnic->hw_addr, 0, mqnic->hw_regs_size);
 	if (!mqnic->rb_list) {
 		dev_err(dev, "Failed to enumerate blocks");
@@ -669,6 +670,9 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	if (ret)
 		goto fail_common;
 
+	// char device
+	create_mq_char_device(mqnic);
+
 	// probe complete
 	return 0;
 
@@ -835,6 +839,8 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
+	printk(KERN_INFO "mqnic_platform_probe succeeded\n");
+
 	// probe complete
 	return 0;
 
@@ -872,15 +878,21 @@ static int __init mqnic_init(void)
 {
 	int rc;
 
+	printk(KERN_INFO "mqnic_init start\n");
+
 #ifdef CONFIG_PCI
 	rc = pci_register_driver(&mqnic_pci_driver);
 	if (rc)
 		return rc;
 #endif
 
+	printk(KERN_INFO "mqnic_init pci_register_driver succeed\n");
+
 	rc = platform_driver_register(&mqnic_platform_driver);
 	if (rc)
 		goto err;
+
+	printk(KERN_INFO "mqnic_init platform_driver_register succeed\n");
 
 	return 0;
 

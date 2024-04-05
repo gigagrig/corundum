@@ -235,6 +235,9 @@ int mqnic_process_tx_cq(struct mqnic_cq *cq, int napi_budget)
 	int done = 0;
 	int budget = napi_budget;
 
+
+	printk(KERN_INFO "mqnic_process_tx_cq\n");
+
 	if (unlikely(!priv || !priv->port_up))
 		return done;
 
@@ -314,6 +317,8 @@ int mqnic_poll_tx_cq(struct napi_struct *napi, int budget)
 {
 	struct mqnic_cq *cq = container_of(napi, struct mqnic_cq, napi);
 	int done;
+
+	printk(KERN_INFO "mqnic_poll_tx_cq succeded\n");
 
 	done = mqnic_process_tx_cq(cq, budget);
 
@@ -512,6 +517,8 @@ netdev_tx_t mqnic_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		if (unlikely(!mqnic_is_tx_ring_full(ring)))
 			netif_tx_wake_queue(ring->tx_queue);
 	}
+
+	printk(KERN_INFO "mqnic_start_xmit succeded\n");
 
 	return NETDEV_TX_OK;
 

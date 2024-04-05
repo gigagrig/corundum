@@ -33,11 +33,15 @@ int mqnic_start_port(struct net_device *ndev)
 		cq = mqnic_create_cq(iface);
 		if (IS_ERR_OR_NULL(cq)) {
 			ret = PTR_ERR(cq);
+			printk(KERN_INFO "mqnic_create_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
 		ret = mqnic_open_cq(cq, iface->eq[k % iface->eq_count], priv->rx_ring_size);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_cq failed ret = %i\n", ret);
+
 			mqnic_destroy_cq(cq);
 			goto fail;
 		}
@@ -55,6 +59,7 @@ int mqnic_start_port(struct net_device *ndev)
 		q = mqnic_create_rx_ring(iface);
 		if (IS_ERR_OR_NULL(q)) {
 			ret = PTR_ERR(q);
+			printk(KERN_INFO "mqnic_create_rx_ring failed ret = %i\n", ret);
 			mqnic_destroy_cq(cq);
 			goto fail;
 		}
@@ -67,6 +72,7 @@ int mqnic_start_port(struct net_device *ndev)
 
 		ret = mqnic_open_rx_ring(q, priv, cq, priv->rx_ring_size, 1);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_rx_ring failed ret = %i\n", ret);
 			mqnic_destroy_rx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -76,6 +82,8 @@ int mqnic_start_port(struct net_device *ndev)
 		ret = radix_tree_insert(&priv->rxq_table, k, q);
 		up_write(&priv->rxq_table_sem);
 		if (ret) {
+			printk(KERN_INFO "radix_tree_insert failed ret = %i\n", ret);
+
 			mqnic_destroy_rx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -88,12 +96,16 @@ int mqnic_start_port(struct net_device *ndev)
 		cq = mqnic_create_cq(iface);
 		if (IS_ERR_OR_NULL(cq)) {
 			ret = PTR_ERR(cq);
+			printk(KERN_INFO "mqnic_create_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
 		ret = mqnic_open_cq(cq, iface->eq[k % iface->eq_count], priv->tx_ring_size);
 		if (ret) {
 			mqnic_destroy_cq(cq);
+			printk(KERN_INFO "mqnic_open_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
@@ -109,6 +121,8 @@ int mqnic_start_port(struct net_device *ndev)
 		// create TX queue
 		q = mqnic_create_tx_ring(iface);
 		if (IS_ERR_OR_NULL(q)) {
+			printk(KERN_INFO "mqnic_create_tx_ring failed");
+
 			ret = PTR_ERR(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -118,6 +132,8 @@ int mqnic_start_port(struct net_device *ndev)
 
 		ret = mqnic_open_tx_ring(q, priv, cq, priv->tx_ring_size, desc_block_size);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_tx_ring failed ret = %i\n", ret);
+
 			mqnic_destroy_tx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -127,6 +143,8 @@ int mqnic_start_port(struct net_device *ndev)
 		ret = radix_tree_insert(&priv->txq_table, k, q);
 		up_write(&priv->txq_table_sem);
 		if (ret) {
+			printk(KERN_INFO "radix_tree_insert(&priv->txq_table, k, q) failed ret = %i\n", ret);
+
 			mqnic_destroy_tx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -176,7 +194,13 @@ int mqnic_start_port(struct net_device *ndev)
 	}
 
 	mqnic_port_set_rx_ctrl(priv->port, MQNIC_PORT_RX_CTRL_EN);
+	//iowrite32(MQNIC_PORT_RX_CTRL_EN, priv->port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1);
 
+	dev_info(&ndev->dev, "Port RX ctrl: 0x%08x", mqnic_port_get_rx_ctrl(priv->port));
+	dev_info(&ndev->dev, "Port TX ctrl: 0x%08x", mqnic_port_get_tx_ctrl(priv->port));
+	dev_info(&ndev->dev, "MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1: 0x%08x", ioread32(priv->port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1));
+
+	printk(KERN_INFO "mqnic_start_port succeeded");
 	return 0;
 
 fail:

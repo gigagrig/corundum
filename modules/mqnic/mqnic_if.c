@@ -30,6 +30,7 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	interface->csr_hw_addr = hw_addr + mdev->if_csr_offset;
 
 	// Enumerate registers
+	dev_info(dev, "interface %i registers:", index);
 	interface->rb_list = mqnic_enumerate_reg_block_list(interface->hw_addr, mdev->if_csr_offset, interface->hw_regs_size);
 	if (!interface->rb_list) {
 		ret = -EIO;

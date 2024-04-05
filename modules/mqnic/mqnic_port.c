@@ -41,6 +41,7 @@ struct mqnic_port *mqnic_create_port(struct mqnic_if *interface, int index,
 
 	offset = ioread32(port_rb->regs + MQNIC_RB_SCHED_BLOCK_REG_OFFSET);
 
+	dev_info(dev, "port %i:%i registers:", interface->index, index);
 	port->rb_list = mqnic_enumerate_reg_block_list(interface->hw_addr, offset, interface->hw_regs_size - offset);
 
 	if (!port->rb_list) {
