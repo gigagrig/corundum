@@ -123,8 +123,8 @@ static ssize_t char_read(struct file *file, char __user *buf,
 {
 	struct mq_char_dev *char_dev;
 	u32 desc_data;
-	size_t buf_offset = 0;
-	int rc = 0;
+	size_t buf_offset;
+	int rc;
 	int copy_err;
 
 	pr_notice("mqnic_char_device: char_read");
@@ -141,6 +141,8 @@ static ssize_t char_read(struct file *file, char __user *buf,
 		return -EINVAL;
 	}
 
+	char_dev = (struct mq_char_dev *)file->private_data;
+	buf_offset = 0;
 	while (buf_offset < count)
 	{
 		desc_data = ioread32(char_dev->bar + buf_offset);
