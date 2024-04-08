@@ -49,6 +49,7 @@ extern unsigned int mqnic_link_status_poll;
 
 struct mqnic_dev;
 struct mqnic_if;
+struct mq_char_dev;
 
 struct mqnic_res {
 	unsigned int count;
@@ -112,6 +113,8 @@ struct mqnic_dev {
 	struct pci_dev *pdev;
 #endif
 	struct platform_device *pfdev;
+
+	struct mq_char_dev *char_dev;
 
 	resource_size_t hw_regs_size;
 	phys_addr_t hw_regs_phys;
@@ -462,6 +465,16 @@ struct mqnic_priv {
 	struct i2c_client *mod_i2c_client;
 };
 
+struct mq_char_dev {
+	struct pci_dev *pdev;	/* pci device struct from probe() */
+	u8 __iomem *bar;	/* addresses for mapped BARs */
+
+	int major;
+
+	struct cdev cdev;
+};
+
+
 // mqnic_main.c
 
 // mqnic_devlink.c
@@ -636,5 +649,13 @@ int mqnic_poll_rx_cq(struct napi_struct *napi, int budget);
 
 // mqnic_ethtool.c
 extern const struct ethtool_ops mqnic_ethtool_ops;
+
+
+
+//char device
+//
+struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev);
+void mq_free_char_dev(struct mq_char_dev *char_dev);
+
 
 #endif /* MQNIC_H */

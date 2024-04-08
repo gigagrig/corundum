@@ -471,6 +471,9 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	struct devlink *devlink = priv_to_devlink(mqnic);
 	int k = 0;
 
+	if (mqnic->char_dev)
+		mq_free_char_dev(mqnic->char_dev);
+
 #ifdef CONFIG_AUXILIARY_BUS
 	if (mqnic->app_adev) {
 		auxiliary_device_delete(&mqnic->app_adev->adev);
@@ -671,12 +674,14 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		goto fail_common;
 
 	// char device
-	create_mq_char_device(mqnic);
+	mqnic->char_dev = create_mq_char_device(mqnic);
+	if (!mqnic->char_dev)
+		goto fail_common;
 
 	// probe complete
 	return 0;
 
-	// error handling
+// error handling
 fail_common:
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);
