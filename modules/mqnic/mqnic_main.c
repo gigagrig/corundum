@@ -885,6 +885,11 @@ static int __init mqnic_init(void)
 
 	printk(KERN_INFO "mqnic_init start\n");
 
+	rc = mq_cdev_init();
+	if (rc)
+		goto err;
+	printk(KERN_INFO "mqnic_init mq_cdev_init succeed\n");
+
 #ifdef CONFIG_PCI
 	rc = pci_register_driver(&mqnic_pci_driver);
 	if (rc)
@@ -915,6 +920,8 @@ static void __exit mqnic_exit(void)
 #ifdef CONFIG_PCI
 	pci_unregister_driver(&mqnic_pci_driver);
 #endif
+
+	mqnic_cdev_cleanup();
 }
 
 module_init(mqnic_init);

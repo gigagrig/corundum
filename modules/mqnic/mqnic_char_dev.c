@@ -1,5 +1,9 @@
 #include "mqnic.h"
 
+static struct class *g_mqnic_class;
+#define MQ_NODE_NAME	"mqnicreg"
+#define MQ_CHAR_DEV_NAME	"mqnic_reg"
+
 
 int char_open(struct inode *inode, struct file *file)
 {
@@ -75,8 +79,8 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 {
 	struct mq_char_dev *char_dev;
 	u32 desc_data;
-	size_t buf_offset = 0;
-	int rc = 0;
+	size_t buf_offset;
+	int rc;
 	int copy_err;
 
 	pr_notice("mqnic_char_device: char_write");
@@ -92,7 +96,7 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 	}
 
 	char_dev = (struct mq_char_dev *)file->private_data;
-
+	buf_offset = 0;
 	while (buf_offset < count) {
 		copy_err = copy_from_user(&desc_data, &buf[buf_offset],
 		                          sizeof(u32));
@@ -171,7 +175,6 @@ static const struct file_operations ctrl_fops = {
 
 struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 {
-	dev_t cdevno;
 	struct mq_char_dev *char_dev;
 	int rv;
 	dev_t dev;
@@ -186,7 +189,7 @@ struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 	char_dev->cdev.owner = THIS_MODULE;
 	char_dev->bar = mq_dev->hw_addr;
 
-	rv = kobject_set_name(&char_dev->cdev.kobj, "mq_registers");
+	rv = kobject_set_name(&char_dev->cdev.kobj, MQ_CHAR_DEV_NAME);
 
 	if (rv)
 	{
@@ -205,14 +208,24 @@ struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 
 	char_dev->major = MAJOR(dev);
 
-	cdevno = MKDEV(char_dev->major, 0);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + 0);
 
 	/* bring character device live */
-	rv = cdev_add(&char_dev->cdev, cdevno, 1);
+	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
 		pr_err("create_mq_char_device: cdev_add failed %d\n", rv);
 		goto unregister_region;
 	}
+
+	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, MQ_CHAR_DEV_NAME);
+
+	pr_notice("mqnic_char_device: device_create %s succeeded", MQ_CHAR_DEV_NAME);
+
+	if (!char_dev->sys_device) {
+		pr_err("create_mq_char_device: device_create(%s) failed\n", MQ_CHAR_DEV_NAME);
+		goto unregister_region;
+	}
+
 
 	pr_notice("mqnic_char_device: create_mq_char_device succeeded");
 
@@ -221,7 +234,7 @@ struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 //del_cdev:
 //	cdev_del(&char_dev->cdev);
 unregister_region:
-	unregister_chrdev_region(cdevno, 1);
+	unregister_chrdev_region(char_dev->cdevno, 1);
 free_cdev:
 	kfree(char_dev);
 	return NULL;
@@ -236,6 +249,9 @@ void destroy_mq_char_device(struct mq_char_dev *char_dev)
 		pr_err("destroy_mq_char_device: char_dev is empty");
 		return;
 	}
+
+	if (char_dev->sys_device)
+		device_destroy(g_mqnic_class, char_dev->cdevno);
 	cdev_del(&char_dev->cdev);
 
 	unregister_chrdev_region(MKDEV(char_dev->major, 0), 1);
@@ -246,4 +262,39 @@ void mq_free_char_dev(struct mq_char_dev *char_dev)
 	pr_notice("mqnic_char_device mq_free_char_dev");
 	destroy_mq_char_device(char_dev);
 	kfree(char_dev);
+}
+
+
+int mq_cdev_init(void)
+{
+	g_mqnic_class = class_create(THIS_MODULE, MQ_NODE_NAME);
+	if (IS_ERR(g_mqnic_class)) {
+		pr_err("mq_cdev_init: failed to create class %s", MQ_NODE_NAME);
+		return -EINVAL;
+	}
+
+	/* using kmem_cache_create to enable sequential cleanup */
+/*	cdev_cache = kmem_cache_create("cdev_cache",
+	                               sizeof(struct cdev_async_io), 0,
+	                               SLAB_HWCACHE_ALIGN, NULL);
+
+	if (!cdev_cache) {
+		pr_info("memory allocation for cdev_cache failed. OOM\n");
+		return -ENOMEM;
+	}*/
+
+	pr_notice("mqnic_char_device: mq_cdev_init finished");
+
+	return 0;
+}
+
+void mqnic_cdev_cleanup(void)
+{
+/*	if (cdev_cache)
+		kmem_cache_destroy(cdev_cache);*/
+
+	if (g_mqnic_class)
+		class_destroy(g_mqnic_class);
+
+	pr_notice("mqnic_char_device: mqnic_cdev_cleanup finished");
 }

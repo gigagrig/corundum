@@ -466,11 +466,10 @@ struct mqnic_priv {
 };
 
 struct mq_char_dev {
-	struct pci_dev *pdev;	/* pci device struct from probe() */
 	u8 __iomem *bar;	/* addresses for mapped BARs */
-
+	struct device *sys_device;	/* sysfs device */
 	int major;
-
+	dev_t cdevno;
 	struct cdev cdev;
 };
 
@@ -656,6 +655,8 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 //
 struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev);
 void mq_free_char_dev(struct mq_char_dev *char_dev);
+int mq_cdev_init(void);
+void mqnic_cdev_cleanup(void);
 
 
 #endif /* MQNIC_H */
