@@ -24,52 +24,12 @@ int char_open(struct inode *inode, struct file *file)
 }
 
 
-#define IOCTL_XDMA_ADDRMODE_SET	_IOW('q', 4, int)
-#define IOCTL_XDMA_ADDRMODE_GET	_IOR('q', 5, int)
-#define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
-
-long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-/*	struct mq_char_dev *char_dev;
-	long result = 0;
-	int rv;*/
-
-	pr_notice("mqnic_char_device: char_ctrl_ioctl");
-
-/*	switch (cmd) {
-		case XDMA_IOCINFO:
-			if (copy_from_user((void *)&ioctl_obj, (void __user *) arg,
-			                   sizeof(struct xdma_ioc_base))) {
-				pr_err("copy_from_user failed.\n");
-				return -EFAULT;
-			}
-
-			if (ioctl_obj.magic != XDMA_XCL_MAGIC) {
-				pr_err("magic 0x%x !=  XDMA_XCL_MAGIC (0x%x).\n",
-				       ioctl_obj.magic, XDMA_XCL_MAGIC);
-				return -ENOTTY;
-			}
-			return version_ioctl(xcdev, (void __user *)arg);
-		case XDMA_IOCOFFLINE:
-			xdma_device_offline(xdev->pdev, xdev);
-			break;
-		case XDMA_IOCONLINE:
-			xdma_device_online(xdev->pdev, xdev);
-			break;
-		default:
-			pr_err("UNKNOWN ioctl cmd 0x%x.\n", cmd);
-			return -ENOTTY;
-	}*/
-	return 0;
-}
-
 /*
  * Called when the device goes from used to unused.
  */
 int char_close(struct inode *inode, struct file *file)
 {
 	pr_notice("mqnic_char_device: char_close");
-
 
 	return 0;
 }
@@ -101,6 +61,12 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 	}
 
+	if (*pos + sizeof(u32) * count > char_dev->bar_size)
+	{
+		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
+		return -EFAULT;
+	}
+
 	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
 	base_addr = char_dev->bar + *pos;
@@ -109,7 +75,6 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 		                          sizeof(u32));
 		if (!copy_err)
 		{
-
 			iowrite32(desc_data, base_addr + buf_offset);
 			buf_offset += sizeof(u32);
 			rc = buf_offset;
@@ -154,6 +119,12 @@ static ssize_t char_read(struct file *file, char __user *buf,
 		return -EINVAL;
 	}
 
+	if (*pos + sizeof(u32) * count > char_dev->bar_size)
+	{
+		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
+		return -EFAULT;
+	}
+
 	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
 	base_addr = char_dev->bar + *pos;
@@ -186,7 +157,7 @@ static const struct file_operations ctrl_fops = {
 		.release = char_close,
 		.read = char_read,
 		.write = char_write,
-		.unlocked_ioctl = char_ctrl_ioctl,
+		//.unlocked_ioctl = char_ctrl_ioctl,
 };
 
 struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
@@ -204,6 +175,7 @@ struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 
 	char_dev->cdev.owner = THIS_MODULE;
 	char_dev->bar = mq_dev->hw_addr;
+	char_dev->bar_size = mq_dev->hw_regs_size;
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, MQ_CHAR_DEV_NAME);
 

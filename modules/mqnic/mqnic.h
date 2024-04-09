@@ -467,6 +467,7 @@ struct mqnic_priv {
 
 struct mq_char_dev {
 	u8 __iomem *bar;	/* addresses for mapped BARs */
+	resource_size_t bar_size;
 	struct device *sys_device;	/* sysfs device */
 	int major;
 	dev_t cdevno;
