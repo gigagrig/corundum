@@ -82,8 +82,9 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 	size_t buf_offset;
 	int rc;
 	int copy_err;
+	u8 __iomem *base_addr;
 
-	pr_notice("mqnic_char_device: char_write");
+	pr_notice("mqnic_char_device: char_write %lli:%li", *pos, count);
 
 	if (count & 3) {
 		pr_err("mqnic_char_device: Buffer size must be a multiple of 4 bytes\n");
@@ -95,15 +96,21 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 	}
 
+	if (*pos & 3) {
+		pr_err("mqnic_char_device: address must be a multiple of 4 bytes\n");
+		return -EINVAL;
+	}
+
 	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
+	base_addr = char_dev->bar + *pos;
 	while (buf_offset < count) {
 		copy_err = copy_from_user(&desc_data, &buf[buf_offset],
 		                          sizeof(u32));
 		if (!copy_err)
 		{
 
-			iowrite32(desc_data, char_dev->bar + buf_offset);
+			iowrite32(desc_data, base_addr + buf_offset);
 			buf_offset += sizeof(u32);
 			rc = buf_offset;
 		}
@@ -126,8 +133,9 @@ static ssize_t char_read(struct file *file, char __user *buf,
 	size_t buf_offset;
 	int rc;
 	int copy_err;
+	u8 __iomem *base_addr;
 
-	pr_notice("mqnic_char_device: char_read");
+	pr_notice("mqnic_char_device: char_read %lli:%li", *pos, count);
 
 	if (count & 3)
 	{
@@ -141,11 +149,17 @@ static ssize_t char_read(struct file *file, char __user *buf,
 		return -EINVAL;
 	}
 
+	if (*pos & 3) {
+		pr_err("mqnic_char_device: address must be a multiple of 4 bytes\n");
+		return -EINVAL;
+	}
+
 	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
+	base_addr = char_dev->bar + *pos;
 	while (buf_offset < count)
 	{
-		desc_data = ioread32(char_dev->bar + buf_offset);
+		desc_data = ioread32(base_addr + buf_offset);
 		copy_err = copy_to_user(&buf[buf_offset], &desc_data, sizeof(u32));
 		if (!copy_err)
 		{
