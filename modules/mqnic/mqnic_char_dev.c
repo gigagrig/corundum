@@ -17,6 +17,9 @@ int char_open(struct inode *inode, struct file *file)
 		pr_err("char_dev NULL\n");
 		return -EINVAL;
 	}
+
+	pr_notice("mqnic_char_device: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
+
 	/* create a reference to our char device in the opened file */
 	file->private_data = char_dev;
 
@@ -61,13 +64,14 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 	}
 
+	char_dev = (struct mq_char_dev *)file->private_data;
+
 	if (*pos + sizeof(u32) * count > char_dev->bar_size)
 	{
 		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
 		return -EFAULT;
 	}
 
-	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
 	base_addr = char_dev->bar + *pos;
 	while (buf_offset < count) {
@@ -119,13 +123,14 @@ static ssize_t char_read(struct file *file, char __user *buf,
 		return -EINVAL;
 	}
 
+	char_dev = (struct mq_char_dev *)file->private_data;
+
 	if (*pos + sizeof(u32) * count > char_dev->bar_size)
 	{
 		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
 		return -EFAULT;
 	}
 
-	char_dev = (struct mq_char_dev *)file->private_data;
 	buf_offset = 0;
 	base_addr = char_dev->bar + *pos;
 	while (buf_offset < count)
