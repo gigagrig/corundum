@@ -194,11 +194,9 @@ int mqnic_start_port(struct net_device *ndev)
 	}
 
 	mqnic_port_set_rx_ctrl(priv->port, MQNIC_PORT_RX_CTRL_EN);
-	//iowrite32(MQNIC_PORT_RX_CTRL_EN, priv->port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1);
 
 	dev_info(&ndev->dev, "Port RX ctrl: 0x%08x", mqnic_port_get_rx_ctrl(priv->port));
 	dev_info(&ndev->dev, "Port TX ctrl: 0x%08x", mqnic_port_get_tx_ctrl(priv->port));
-	dev_info(&ndev->dev, "MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1: 0x%08x", ioread32(priv->port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL1));
 
 	printk(KERN_INFO "mqnic_start_port succeeded");
 	return 0;
