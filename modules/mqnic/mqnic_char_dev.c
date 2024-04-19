@@ -1,8 +1,8 @@
 #include "mqnic.h"
 
 static struct class *g_mqnic_class;
-#define MQ_NODE_NAME	"mqnicreg"
-#define MQ_CHAR_DEV_NAME	"mqnic_reg"
+#define MQ_NODE_NAME	"mqnic_char"
+#define MQ_CHAR_DEV_COUNT 3
 
 
 int char_open(struct inode *inode, struct file *file)
@@ -37,8 +37,7 @@ int char_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t char_write(struct file *file, const char __user *buf,
-                                 size_t count, loff_t *pos)
+static ssize_t char_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	struct mq_char_dev *char_dev;
 	u32 desc_data;
@@ -75,10 +74,10 @@ static ssize_t char_write(struct file *file, const char __user *buf,
 	buf_offset = 0;
 	base_addr = char_dev->bar + *pos;
 	while (buf_offset < count) {
-		copy_err = copy_from_user(&desc_data, &buf[buf_offset],
-		                          sizeof(u32));
+		copy_err = copy_from_user(&desc_data, &buf[buf_offset], sizeof(u32));
 		if (!copy_err)
 		{
+			pr_notice("char_write 0x%x to 0x%llx", desc_data, *pos);
 			iowrite32(desc_data, base_addr + buf_offset);
 			buf_offset += sizeof(u32);
 			rc = buf_offset;
@@ -162,27 +161,27 @@ static const struct file_operations ctrl_fops = {
 		.release = char_close,
 		.read = char_read,
 		.write = char_write,
-		//.unlocked_ioctl = char_ctrl_ioctl,
 };
 
-struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
+struct mq_char_dev *create_mq_char_device(const char* name, int num,
+		u8 __iomem *hw_addr, resource_size_t hw_regs_size)
 {
 	struct mq_char_dev *char_dev;
 	int rv;
 	dev_t dev;
 
-	pr_notice("mqnic_char_device: create_mq_char_device");
-	char_dev = kmalloc(sizeof(*char_dev   ), GFP_KERNEL);
+	pr_notice("mqnic_char_device: create_mq_char_device %s", name);
+	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
 		return NULL;
 	memset(char_dev, 0, sizeof(*char_dev));
 
 	char_dev->cdev.owner = THIS_MODULE;
-	char_dev->bar = mq_dev->hw_addr;
-	char_dev->bar_size = mq_dev->hw_regs_size;
+	char_dev->bar = hw_addr;
+	char_dev->bar_size = hw_regs_size;
 
-	rv = kobject_set_name(&char_dev->cdev.kobj, MQ_CHAR_DEV_NAME);
+	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
 	if (rv)
 	{
@@ -190,44 +189,45 @@ struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev)
 		goto free_cdev;
 	}
 
-	rv = alloc_chrdev_region(&dev, 0, 1, "mq");
-
-	if (rv) {
-		pr_err("create_mq_char_device: unable to allocate cdev region %d.\n", rv);
-		goto free_cdev;
+	if (num == 0)
+	{
+		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
+		if (rv)
+		{
+			pr_err("create_mq_char_device: unable to allocate cdev region %d.\n", rv);
+			goto free_cdev;
+		}
 	}
 
 	cdev_init(&char_dev->cdev, &ctrl_fops);
 
 	char_dev->major = MAJOR(dev);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + 0);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + num);
 
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
-		pr_err("create_mq_char_device: cdev_add failed %d\n", rv);
+		pr_err("create_mq_char_device: cdev_add %s failed %d\n", name, rv);
 		goto unregister_region;
 	}
 
-	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, MQ_CHAR_DEV_NAME);
-
-	pr_notice("mqnic_char_device: device_create %s succeeded", MQ_CHAR_DEV_NAME);
+	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
 
 	if (!char_dev->sys_device) {
-		pr_err("create_mq_char_device: device_create(%s) failed\n", MQ_CHAR_DEV_NAME);
+		pr_err("create_mq_char_device: device_create(%s) failed\n", name);
 		goto unregister_region;
 	}
 
 
-	pr_notice("mqnic_char_device: create_mq_char_device succeeded");
+	pr_notice("mqnic_char_device: create_mq_char_device %s succeeded", name);
 
 	return char_dev;
 
 //del_cdev:
 //	cdev_del(&char_dev->cdev);
 unregister_region:
-	unregister_chrdev_region(char_dev->cdevno, 1);
+	unregister_chrdev_region(char_dev->cdevno, MQ_CHAR_DEV_COUNT);
 free_cdev:
 	kfree(char_dev);
 	return NULL;
@@ -247,7 +247,7 @@ void destroy_mq_char_device(struct mq_char_dev *char_dev)
 		device_destroy(g_mqnic_class, char_dev->cdevno);
 	cdev_del(&char_dev->cdev);
 
-	unregister_chrdev_region(MKDEV(char_dev->major, 0), 1);
+	unregister_chrdev_region(MKDEV(char_dev->major, 0), MQ_CHAR_DEV_COUNT);
 }
 
 void mq_free_char_dev(struct mq_char_dev *char_dev)

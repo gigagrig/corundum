@@ -471,8 +471,12 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	struct devlink *devlink = priv_to_devlink(mqnic);
 	int k = 0;
 
-	if (mqnic->char_dev)
-		mq_free_char_dev(mqnic->char_dev);
+	if (mqnic->char_reg_dev)
+		mq_free_char_dev(mqnic->char_reg_dev);
+	if (mqnic->char_app_dev)
+		mq_free_char_dev(mqnic->char_app_dev);
+	if (mqnic->char_ram_dev)
+		mq_free_char_dev(mqnic->char_ram_dev);
 
 #ifdef CONFIG_AUXILIARY_BUS
 	if (mqnic->app_adev) {
@@ -674,12 +678,24 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		goto fail_common;
 
 	// char device
-	mqnic->char_dev = create_mq_char_device(mqnic);
-	if (!mqnic->char_dev)
+	mqnic->char_reg_dev = create_mq_char_device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
+	if (!mqnic->char_reg_dev)
 		goto fail_common;
+	mqnic->char_app_dev = create_mq_char_device("mqnic_app", 1, mqnic->app_hw_addr, mqnic->app_hw_regs_size);
+	if (!mqnic->char_app_dev)
+		goto fail_char_app_dev;
+	mqnic->char_ram_dev = create_mq_char_device("mqnic_ram", 2, mqnic->ram_hw_addr, mqnic->ram_hw_regs_size);
+	if (!mqnic->char_ram_dev)
+		goto fail_char_ram_dev;
 
 	// probe complete
 	return 0;
+
+fail_char_ram_dev:
+	mq_free_char_dev(mqnic->char_app_dev);
+
+fail_char_app_dev:
+	mq_free_char_dev(mqnic->char_reg_dev);
 
 // error handling
 fail_common:

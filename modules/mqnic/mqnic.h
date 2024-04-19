@@ -114,7 +114,9 @@ struct mqnic_dev {
 #endif
 	struct platform_device *pfdev;
 
-	struct mq_char_dev *char_dev;
+	struct mq_char_dev *char_reg_dev;
+	struct mq_char_dev *char_app_dev;
+	struct mq_char_dev *char_ram_dev;
 
 	resource_size_t hw_regs_size;
 	phys_addr_t hw_regs_phys;
@@ -654,7 +656,7 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 
 //char device
 //
-struct mq_char_dev *create_mq_char_device(struct mqnic_dev *mq_dev);
+struct mq_char_dev *create_mq_char_device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
 void mq_free_char_dev(struct mq_char_dev *char_dev);
 int mq_cdev_init(void);
 void mqnic_cdev_cleanup(void);
