@@ -117,6 +117,7 @@ struct mqnic_dev {
 	struct mq_char_dev *char_reg_dev;
 	struct mq_char_dev *char_app_dev;
 	struct mq_char_dev *char_ram_dev;
+	struct mq_char_dev *char_log_dev;
 
 	resource_size_t hw_regs_size;
 	phys_addr_t hw_regs_phys;
@@ -473,11 +474,16 @@ struct mq_char_dev {
 	struct device *sys_device;	/* sysfs device */
 	int major;
 	dev_t cdevno;
+	void *dev_buf;
+	size_t dev_buf_size;
 	struct cdev cdev;
 };
 
 
 // mqnic_main.c
+extern u64 g_base_reg_addr;
+extern u64 g_reg_size;
+void mqnic_write_register(u32 val, void __iomem *addr);
 
 // mqnic_devlink.c
 struct devlink *mqnic_devlink_alloc(struct device *dev);
@@ -657,6 +663,7 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 //char device
 //
 struct mq_char_dev *create_mq_char_device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
+struct mq_char_dev *create_mq_char_log_device(const char* name, int num);
 void mq_free_char_dev(struct mq_char_dev *char_dev);
 int mq_cdev_init(void);
 void mqnic_cdev_cleanup(void);

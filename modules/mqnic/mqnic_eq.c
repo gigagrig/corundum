@@ -89,25 +89,25 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 	memset(eq->buf, 1, eq->buf_size);
 
 	// deactivate queue
-	iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set base address
-	iowrite32((eq->buf_dma_addr & 0xfffff000),
+	mqnic_write_register((eq->buf_dma_addr & 0xfffff000),
 			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 0);
-	iowrite32(eq->buf_dma_addr >> 32,
+	mqnic_write_register(eq->buf_dma_addr >> 32,
 			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 4);
 	// set size
-	iowrite32(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
+	mqnic_write_register(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set IRQN
-	iowrite32(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
+	mqnic_write_register(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set pointers
-	iowrite32(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
+	mqnic_write_register(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
-	iowrite32(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	mqnic_write_register(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// activate queue
-	iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 
 	eq->enabled = 1;
 
@@ -124,7 +124,7 @@ void mqnic_close_eq(struct mqnic_eq *eq)
 
 	if (eq->hw_addr) {
 		// deactivate queue
-		iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+		mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	}
 
 	// unregister interrupt
@@ -186,7 +186,7 @@ void mqnic_eq_write_cons_ptr(struct mqnic_eq *eq)
 {
 	u32 val = MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK);
 	dev_info(eq->dev, "mqnic_eq_write_cons_ptr (Base+0x08 Control/status) <- 0x%08x", val);
-	iowrite32(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	mqnic_write_register(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
@@ -197,7 +197,7 @@ void mqnic_arm_eq(struct mqnic_eq *eq)
 		return;
 	val = MQNIC_EQ_CMD_SET_ARM | 1;
 	dev_info(eq->dev, "mqnic_arm_eq (Base+0x08 Control/status) <- 0x%08x", val);
-	iowrite32(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	mqnic_write_register(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_process_eq(struct mqnic_eq *eq)

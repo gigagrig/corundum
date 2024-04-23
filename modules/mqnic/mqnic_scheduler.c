@@ -52,11 +52,11 @@ int mqnic_scheduler_enable(struct mqnic_sched *sched)
 	int k;
 
 	// enable scheduler
-	iowrite32(1, sched->rb->regs + MQNIC_RB_SCHED_RR_REG_CTRL);
+	mqnic_write_register(1, sched->rb->regs + MQNIC_RB_SCHED_RR_REG_CTRL);
 
 	// enable queues
 	for (k = 0; k < sched->channel_count; k++)
-		iowrite32(3, sched->hw_addr + k * sched->channel_stride);
+		mqnic_write_register(3, sched->hw_addr + k * sched->channel_stride);
 
 	return 0;
 }
@@ -65,6 +65,6 @@ EXPORT_SYMBOL(mqnic_scheduler_enable);
 void mqnic_scheduler_disable(struct mqnic_sched *sched)
 {
 	// disable scheduler
-	iowrite32(0, sched->rb->regs + MQNIC_RB_SCHED_RR_REG_CTRL);
+	mqnic_write_register(0, sched->rb->regs + MQNIC_RB_SCHED_RR_REG_CTRL);
 }
 EXPORT_SYMBOL(mqnic_scheduler_disable);

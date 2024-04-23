@@ -58,6 +58,34 @@ MODULE_DEVICE_TABLE(of, mqnic_of_id_table);
 static LIST_HEAD(mqnic_devices);
 static DEFINE_SPINLOCK(mqnic_devices_lock);
 
+u64 g_base_reg_addr = 0;
+u64 g_reg_size = 0;
+char *g_log_buf = 0;
+size_t g_log_buf_size = 0;
+size_t g_log_pos = 0;
+
+void mqnic_write_register(u32 val, void __iomem *addr)
+{
+	int n;
+
+	iowrite32(val, addr);
+	if ((u64)addr < g_base_reg_addr || (u64)addr - g_base_reg_addr >= g_reg_size)
+	{
+		printk(KERN_INFO "mqnic_driver iowrite32 0x%llx = 0x%x", (u64)addr, val);
+		return;
+	}
+
+	if (!g_log_buf)
+		return;
+
+	n = snprintf(g_log_buf + g_log_pos, g_log_buf_size - g_log_pos,
+			 "MQNIC_REGISTER 0x%x = 0x%x\n", (u32)((u64)addr - g_base_reg_addr), val);
+	g_log_pos += n;
+	if (g_log_pos >= g_log_buf_size)
+		g_log_pos = 0;
+	//printk(KERN_INFO "MQNIC_REGISTER 0x%x = 0x%x", (u32)((u64)addr - g_base_reg_addr), val);
+}
+
 static unsigned int mqnic_get_free_id(void)
 {
 	struct mqnic_dev *mqnic;
@@ -471,13 +499,6 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	struct devlink *devlink = priv_to_devlink(mqnic);
 	int k = 0;
 
-	if (mqnic->char_reg_dev)
-		mq_free_char_dev(mqnic->char_reg_dev);
-	if (mqnic->char_app_dev)
-		mq_free_char_dev(mqnic->char_app_dev);
-	if (mqnic->char_ram_dev)
-		mq_free_char_dev(mqnic->char_ram_dev);
-
 #ifdef CONFIG_AUXILIARY_BUS
 	if (mqnic->app_adev) {
 		auxiliary_device_delete(&mqnic->app_adev->adev);
@@ -505,6 +526,17 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	}
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
+
+	if (mqnic->char_reg_dev)
+		mq_free_char_dev(mqnic->char_reg_dev);
+	if (mqnic->char_app_dev)
+		mq_free_char_dev(mqnic->char_app_dev);
+	if (mqnic->char_ram_dev)
+		mq_free_char_dev(mqnic->char_ram_dev);
+	if (mqnic->char_log_dev)
+		mq_free_char_dev(mqnic->char_log_dev);
+	g_log_buf = 0;
+	g_log_buf_size = 0;
 
 	devlink_unregister(devlink);
 }
@@ -634,6 +666,8 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		dev_err(dev, "Failed to map control BAR");
 		goto fail_map_bars;
 	}
+	g_base_reg_addr = (u64)mqnic->hw_addr;
+	g_reg_size = mqnic->hw_regs_size;
 
 	if (mqnic->app_hw_regs_size) {
 		dev_info(dev, "Application BAR size: %llu", mqnic->app_hw_regs_size);
@@ -672,11 +706,6 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// Enable bus mastering for DMA
 	pci_set_master(pdev);
 
-	// Common init
-	ret = mqnic_common_probe(mqnic);
-	if (ret)
-		goto fail_common;
-
 	// char device
 	mqnic->char_reg_dev = create_mq_char_device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
 	if (!mqnic->char_reg_dev)
@@ -688,8 +717,29 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	if (!mqnic->char_ram_dev)
 		goto fail_char_ram_dev;
 
+	mqnic->char_log_dev = create_mq_char_log_device("mqnic_log", 3);
+	if (!mqnic->char_log_dev)
+		goto fail_char_log_dev;
+
+	g_log_buf = mqnic->char_log_dev->dev_buf;
+	g_log_buf_size = mqnic->char_log_dev->dev_buf_size - 1; // last for 0
+	g_log_pos = 0;
+
+	// Common init
+	ret = mqnic_common_probe(mqnic);
+	if (ret)
+		goto fail_char_common_probe;
+
+	dev_info(dev, DRIVER_NAME " PCI probe");
+
 	// probe complete
 	return 0;
+
+fail_char_common_probe:
+	mq_free_char_dev(mqnic->char_log_dev);
+
+fail_char_log_dev:
+	mq_free_char_dev(mqnic->char_ram_dev);
 
 fail_char_ram_dev:
 	mq_free_char_dev(mqnic->char_app_dev);
