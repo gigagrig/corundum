@@ -40,6 +40,7 @@
 
 // default interval to poll port TX/RX status, in ms
 #define MQNIC_LINK_STATUS_POLL_MS 1000
+#define MQNIC_EQ_STATUS_POLL_MS 1
 
 extern unsigned int mqnic_num_eq_entries;
 extern unsigned int mqnic_num_txq_entries;
@@ -442,6 +443,7 @@ struct mqnic_priv {
 
 	unsigned int link_status;
 	struct timer_list link_status_timer;
+	//struct timer_list eq_status_timer;
 
 	u32 txq_count;
 	u32 rxq_count;
@@ -483,6 +485,7 @@ struct mq_char_dev {
 // mqnic_main.c
 extern u64 g_base_reg_addr;
 extern u64 g_reg_size;
+void mqnic_log(const char* fmt, ...);
 void mqnic_write_register(u32 val, void __iomem *addr);
 
 // mqnic_devlink.c

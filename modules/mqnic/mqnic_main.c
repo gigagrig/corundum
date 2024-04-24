@@ -64,6 +64,18 @@ char *g_log_buf = 0;
 size_t g_log_buf_size = 0;
 size_t g_log_pos = 0;
 
+void mqnic_log(const char* fmt, ...)
+{
+	int n;
+	va_list args;
+	va_start(args, fmt);
+	n = vsnprintf(g_log_buf + g_log_pos, g_log_buf_size - g_log_pos, fmt, args);
+	va_end(args);
+	g_log_pos += n;
+	if (g_log_pos >= g_log_buf_size)
+		g_log_pos = 0;
+}
+
 void mqnic_write_register(u32 val, void __iomem *addr)
 {
 	int n;

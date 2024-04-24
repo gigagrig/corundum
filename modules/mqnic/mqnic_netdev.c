@@ -193,6 +193,9 @@ int mqnic_start_port(struct net_device *ndev)
 		netif_carrier_on(ndev);
 	}
 
+/*	mod_timer(&priv->eq_status_timer,
+	          jiffies + msecs_to_jiffies(mqnic_link_status_poll));*/
+
 	mqnic_port_set_rx_ctrl(priv->port, MQNIC_PORT_RX_CTRL_EN);
 
 	dev_info(&ndev->dev, "Port RX ctrl: 0x%08x", mqnic_port_get_rx_ctrl(priv->port));

@@ -17,6 +17,18 @@ static int mqnic_eq_int(struct notifier_block *nb, unsigned long action, void *d
 	return NOTIFY_DONE;
 }
 
+int mqnic_eq_iterate(struct notifier_block *nb, unsigned long action, void *data)
+{
+	struct mqnic_eq *eq = container_of(nb, struct mqnic_eq, irq_nb);
+
+	dev_info(eq->dev, "mqnic_eq_int");
+
+	mqnic_process_eq(eq);
+	mqnic_arm_eq(eq);
+
+	return NOTIFY_DONE;
+}
+
 struct mqnic_eq *mqnic_create_eq(struct mqnic_if *interface)
 {
 	struct mqnic_eq *eq;
@@ -88,6 +100,7 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 
 	memset(eq->buf, 1, eq->buf_size);
 
+	mqnic_log("mqnic_open_eq 0x%x\n", (u32)(u64)(eq->hw_addr - g_base_reg_addr));
 	// deactivate queue
 	mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set base address
@@ -114,6 +127,7 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 	return 0;
 
 fail:
+	dev_err(eq->dev, "mqnic_open_eq failed\n");
 	mqnic_close_eq(eq);
 	return ret;
 }

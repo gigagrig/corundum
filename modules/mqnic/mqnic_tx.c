@@ -79,12 +79,11 @@ int mqnic_open_tx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	ring->prod_ptr = 0;
 	ring->cons_ptr = 0;
 
-	//dev_info(ring->dev, "mqnic_open_tx_ring");
+	mqnic_log("mqnic_open_tx_ring 0x%x\n", (u32)(u64)(ring->hw_addr - g_base_reg_addr));
 
 	// deactivate queue
 	//val = MQNIC_QUEUE_CMD_SET_ENABLE | 0;
 	//dev_info(ring->dev, "(Base+0x08 Control/status) <- 0x%08x", val);
-
 	mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
 			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 

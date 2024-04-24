@@ -42,7 +42,7 @@ int mqnic_irq_init_pcie(struct mqnic_dev *mdev)
 
 		ATOMIC_INIT_NOTIFIER_HEAD(&irq->nh);
 
-		ret = pci_request_irq(pdev, k, mqnic_irq_handler, NULL,
+		ret = pci_request_irq(pdev, k, mqnic_irq_handler, mqnic_irq_handler,
 				irq, "%s-%d", mdev->name, k);
 		if (ret < 0) {
 			kfree(irq);
