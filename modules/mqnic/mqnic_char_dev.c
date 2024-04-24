@@ -9,7 +9,7 @@ int char_open(struct inode *inode, struct file *file)
 {
 	struct mq_char_dev *char_dev;
 
-	pr_notice("mqnic_char_device: char_open");
+	pr_notice("mqnic_char_device: char_open\n");
 
 	/* pointer to containing structure of the character device inode */
 	char_dev = container_of(inode->i_cdev, struct mq_char_dev, cdev);
@@ -33,7 +33,7 @@ int char_open(struct inode *inode, struct file *file)
  */
 int char_close(struct inode *inode, struct file *file)
 {
-	pr_notice("mqnic_char_device: char_close");
+	pr_notice("mqnic_char_device: char_close\n");
 
 	return 0;
 }
@@ -164,7 +164,7 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 	char *base_addr;
 	char *dev_buf_end;
 
-	pr_notice("char_read_log: %lli:%li", *pos, count);
+	pr_notice("char_read_log: %lli:%li\n", *pos, count);
 
 	if (!buf)
 	{
@@ -183,6 +183,7 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 		if (!copy_err)
 		{
 			rc = count;
+			*pos += count;
 		}
 		else
 		{
