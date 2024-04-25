@@ -9,19 +9,7 @@ static int mqnic_eq_int(struct notifier_block *nb, unsigned long action, void *d
 {
 	struct mqnic_eq *eq = container_of(nb, struct mqnic_eq, irq_nb);
 
-	dev_info(eq->dev, "mqnic_eq_int");
-
-	mqnic_process_eq(eq);
-	mqnic_arm_eq(eq);
-
-	return NOTIFY_DONE;
-}
-
-int mqnic_eq_iterate(struct notifier_block *nb, unsigned long action, void *data)
-{
-	struct mqnic_eq *eq = container_of(nb, struct mqnic_eq, irq_nb);
-
-	dev_info(eq->dev, "mqnic_eq_int");
+	dev_info(eq->dev, "mqnic_eq_int\n");
 
 	mqnic_process_eq(eq);
 	mqnic_arm_eq(eq);
@@ -229,12 +217,13 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 	while (1) {
 		event = (struct mqnic_event *)(eq->buf + eq_index * eq->stride);
 
-		dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x",
+		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
+			break;
+
+		dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x\n",
 		         __func__, interface->index, eq->eqn, eq_index,
 		         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
 
-		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
-			break;
 
 		dma_rmb();
 
@@ -272,3 +261,82 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 	eq->cons_ptr = eq_cons_ptr;
 	mqnic_eq_write_cons_ptr(eq);
 }
+
+int mqnic_poll_eq(struct mqnic_eq *eq)
+{
+	struct mqnic_if *interface = eq->interface;
+	struct mqnic_event *event;
+	struct mqnic_cq *cq;
+	u32 eq_index;
+	u32 eq_cons_ptr;
+	u32 reg_prod_ptr;
+	u32 reg_cons_ptr;
+	int done = 0;
+
+	reg_prod_ptr = ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) & MQNIC_EQ_PTR_MASK;
+	reg_cons_ptr = (ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) >> 16) & MQNIC_EQ_PTR_MASK;
+
+	mqnic_log("eqn = %i enabled = %i eq_cons_ptr = %u, reg_prod_ptr = %u, reg_cons_ptr = %u\n",
+	          eq->eqn, eq->enabled, eq->cons_ptr, reg_cons_ptr, reg_cons_ptr);
+	eq_cons_ptr = eq->cons_ptr;
+	eq_index = eq_cons_ptr & eq->size_mask;
+
+	if (reg_cons_ptr != 0 || reg_prod_ptr != 0)
+	{
+		dev_info(eq->dev, "Hallelujah! reg_prod_ptr = %u, reg_cons_ptr = %u\n", reg_prod_ptr, reg_cons_ptr);
+	}
+
+	while (1) {
+		event = (struct mqnic_event *)(eq->buf + eq_index * eq->stride);
+
+		mqnic_log("event->phase = %i eq->size = %u\n", event->phase, eq->size);
+		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
+			break;
+
+		dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x",
+		         __func__, interface->index, eq->eqn, eq_index,
+		         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
+
+
+		dma_rmb();
+
+		if (event->type == MQNIC_EVENT_TYPE_CPL) {
+			// completion event
+			rcu_read_lock();
+			cq = radix_tree_lookup(&eq->cq_table, le16_to_cpu(event->source));
+			rcu_read_unlock();
+
+			if (likely(cq)) {
+				if (likely(cq->handler))
+					cq->handler(cq);
+			} else {
+				dev_err(eq->dev, "%s on IF %d EQ %d: unknown event source %d (index %d, type %d)",
+				        __func__, interface->index, eq->eqn, le16_to_cpu(event->source),
+				        eq_index, le16_to_cpu(event->type));
+				print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1,
+				               event, MQNIC_EVENT_SIZE, true);
+			}
+		} else {
+			dev_err(eq->dev, "%s on IF %d EQ %d: unknown event type %d (index %d, source %d)",
+			        __func__, interface->index, eq->eqn, le16_to_cpu(event->type),
+			        eq_index, le16_to_cpu(event->source));
+			print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1,
+			               event, MQNIC_EVENT_SIZE, true);
+		}
+
+		done++;
+
+		eq_cons_ptr++;
+		eq_index = eq_cons_ptr & eq->size_mask;
+	}
+
+	if (done == 0)
+		return done;
+
+	// update EQ consumer pointer
+	eq->cons_ptr = eq_cons_ptr;
+	mqnic_eq_write_cons_ptr(eq);
+
+	return done;
+}
+

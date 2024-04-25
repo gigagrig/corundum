@@ -193,8 +193,8 @@ int mqnic_start_port(struct net_device *ndev)
 		netif_carrier_on(ndev);
 	}
 
-/*	mod_timer(&priv->eq_status_timer,
-	          jiffies + msecs_to_jiffies(mqnic_link_status_poll));*/
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		mod_timer(&priv->eq_status_timer, jiffies + msecs_to_jiffies(MQNIC_EQ_STATUS_POLL_MS));
 
 	mqnic_port_set_rx_ctrl(priv->port, MQNIC_PORT_RX_CTRL_EN);
 
@@ -221,6 +221,8 @@ void mqnic_stop_port(struct net_device *ndev)
 
 	if (mqnic_link_status_poll)
 		del_timer_sync(&priv->link_status_timer);
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		del_timer_sync(&priv->eq_status_timer);
 
 	mqnic_port_set_rx_ctrl(priv->port, 0);
 
@@ -528,6 +530,34 @@ static const struct net_device_ops mqnic_netdev_ops = {
 #endif
 };
 
+static int g_eq_status_times = 0;
+
+static void mqnic_eq_status_timeout(struct timer_list *timer)
+{
+	u32 i;
+	int done;
+	struct mqnic_priv *priv = from_timer(priv, timer, eq_status_timer);
+
+	++g_eq_status_times;
+	if (g_eq_status_times % 10 == 0)
+		mqnic_log("mqnic_eq_status_timeout %i times, if_index = %i link_status = %u, eq_count = %u\n",
+		          g_eq_status_times,
+		          priv->interface->index,
+				  priv->link_status,
+				  priv->interface->eq_count);
+
+	if (priv->link_status) {
+		for (i = 0; i < priv->interface->eq_count; ++i)
+		{
+			struct mqnic_eq *eq =  priv->interface->eq[i];
+			done = mqnic_poll_eq(eq);
+			if (done > 0)
+				mqnic_arm_eq(eq);
+		}
+	}
+	mod_timer(&priv->eq_status_timer, jiffies + msecs_to_jiffies(MQNIC_EQ_STATUS_POLL_MS));
+}
+
 static void mqnic_link_status_timeout(struct timer_list *timer)
 {
 	struct mqnic_priv *priv = from_timer(priv, timer, link_status_timer);
@@ -673,6 +703,8 @@ struct net_device *mqnic_create_netdev(struct mqnic_if *interface, int index,
 	netif_carrier_off(ndev);
 	if (mqnic_link_status_poll)
 		timer_setup(&priv->link_status_timer, mqnic_link_status_timeout, 0);
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		timer_setup(&priv->eq_status_timer, mqnic_eq_status_timeout, 0);
 
 	ret = register_netdev(ndev);
 	if (ret) {
