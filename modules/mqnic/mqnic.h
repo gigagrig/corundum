@@ -40,7 +40,7 @@
 
 // default interval to poll port TX/RX status, in ms
 #define MQNIC_LINK_STATUS_POLL_MS 1000
-#define MQNIC_EQ_STATUS_POLL_MS 100
+#define MQNIC_EQ_STATUS_POLL_MS 0
 
 extern unsigned int mqnic_num_eq_entries;
 extern unsigned int mqnic_num_txq_entries;
