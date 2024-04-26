@@ -194,6 +194,49 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 	return rc;
 }
 
+/*struct mmap_info {
+	char *data;
+	int reference;
+};
+
+void mmap_open(struct vm_area_struct *vma)
+{
+	struct mmap_info *info = (struct mmap_info *)vma->vm_private_data;
+	info->reference++;
+}
+
+void mmap_close(struct vm_area_struct *vma)
+{
+	struct mmap_info *info = (struct mmap_info *)vma->vm_private_data;
+	info->reference--;
+}
+
+static int mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	struct page *page;
+	struct mmap_info *info;
+
+	info = (struct mmap_info *)vma->vm_private_data;
+	if (!info->data) {
+		printk("No data\n");
+		return 0;
+	}
+
+	page = virt_to_page(info->data);
+
+	get_page(page);
+	vmf->page = page;
+
+	return 0;
+}
+
+struct vm_operations_struct mmap_vm_ops = {
+		.open = mmap_open,
+		.close = mmap_close,
+		.fault = mmap_fault,
+};
+
+*/
 
 static const struct file_operations ctrl_fops = {
 		.owner = THIS_MODULE,
