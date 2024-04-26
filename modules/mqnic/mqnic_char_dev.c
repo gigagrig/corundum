@@ -9,7 +9,7 @@ int char_open(struct inode *inode, struct file *file)
 {
 	struct mq_char_dev *char_dev;
 
-	pr_notice("mqnic_char_device: char_open\n");
+	pr_info("mqnic_char_device: char_open\n");
 
 	/* pointer to containing structure of the character device inode */
 	char_dev = container_of(inode->i_cdev, struct mq_char_dev, cdev);
@@ -18,8 +18,8 @@ int char_open(struct inode *inode, struct file *file)
 		return -EINVAL;
 	}
 
-	pr_notice("mqnic_char_device: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
-	pr_notice("mqnic_char_device: buf: 0x%llx size: 0x%lx", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
+	pr_info("mqnic_char_device: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
+	pr_info("mqnic_char_device: buf: 0x%llx size: 0x%lx", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
 
 	/* create a reference to our char device in the opened file */
 	file->private_data = char_dev;
@@ -33,7 +33,7 @@ int char_open(struct inode *inode, struct file *file)
  */
 int char_close(struct inode *inode, struct file *file)
 {
-	pr_notice("mqnic_char_device: char_close\n");
+	pr_info("mqnic_char_device: char_close\n");
 
 	return 0;
 }
@@ -47,7 +47,7 @@ static ssize_t char_write(struct file *file, const char __user *buf, size_t coun
 	int copy_err;
 	u8 __iomem *base_addr;
 
-	pr_notice("mqnic_char_device: char_write %lli:%li", *pos, count);
+	pr_info("mqnic_char_device: char_write %lli:%li", *pos, count);
 
 	if (count & 3) {
 		pr_err("mqnic_char_device: Buffer size must be a multiple of 4 bytes\n");
@@ -78,7 +78,7 @@ static ssize_t char_write(struct file *file, const char __user *buf, size_t coun
 		copy_err = copy_from_user(&desc_data, &buf[buf_offset], sizeof(u32));
 		if (!copy_err)
 		{
-			pr_notice("char_write 0x%x to 0x%llx", desc_data, *pos);
+			pr_info("char_write 0x%x to 0x%llx", desc_data, *pos);
 			mqnic_write_register(desc_data, base_addr + buf_offset);
 			buf_offset += sizeof(u32);
 			rc = buf_offset;
@@ -104,7 +104,7 @@ static ssize_t char_read(struct file *file, char __user *buf,
 	int copy_err;
 	u8 __iomem *base_addr;
 
-	pr_notice("mqnic_char_device: char_read %lli:%li", *pos, count);
+	pr_info("mqnic_char_device: char_read %lli:%li", *pos, count);
 
 	if (count & 3)
 	{
@@ -164,7 +164,7 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 	char *base_addr;
 	char *dev_buf_end;
 
-	pr_notice("char_read_log: %lli:%li\n", *pos, count);
+	pr_info("char_read_log: %lli:%li\n", *pos, count);
 
 	if (!buf)
 	{
@@ -194,49 +194,67 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 	return rc;
 }
 
-/*struct mmap_info {
-	char *data;
-	int reference;
-};
-
-void mmap_open(struct vm_area_struct *vma)
-{
-	struct mmap_info *info = (struct mmap_info *)vma->vm_private_data;
-	info->reference++;
-}
-
-void mmap_close(struct vm_area_struct *vma)
-{
-	struct mmap_info *info = (struct mmap_info *)vma->vm_private_data;
-	info->reference--;
-}
-
-static int mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+vm_fault_t vm_mmap_fault(struct vm_fault *vmf)
 {
 	struct page *page;
-	struct mmap_info *info;
+	struct mq_char_dev *char_dev;
 
-	info = (struct mmap_info *)vma->vm_private_data;
-	if (!info->data) {
-		printk("No data\n");
-		return 0;
+	char_dev = (struct mq_char_dev *)vmf->vma->vm_private_data;
+	if (!char_dev) {
+		pr_err("vm_mmap_fault: no device\n");
+		return -ENODEV;
 	}
-
-	page = virt_to_page(info->data);
-
+	pr_info("vm_mmap_fault\n");
+	//page = virt_to_page(char_dev->dev_buf + vmf->pgoff);
+	page = vmalloc_to_page(char_dev->dev_buf + (vmf->pgoff << PAGE_SHIFT));
 	get_page(page);
 	vmf->page = page;
 
 	return 0;
 }
 
-struct vm_operations_struct mmap_vm_ops = {
-		.open = mmap_open,
-		.close = mmap_close,
-		.fault = mmap_fault,
+void vm_mmap_close(struct vm_area_struct * area)
+{
+	pr_info("vm_mmap_close\n");
+}
+void vm_mmap_open(struct vm_area_struct * area)
+{
+	pr_info("vm_mmap_open\n");
+}
+
+
+static struct vm_operations_struct vm_ops =
+{
+	.close = vm_mmap_close,
+	.fault = vm_mmap_fault,
+	.open = vm_mmap_open,
 };
 
+
+int char_dev_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct mq_char_dev *char_dev;
+
+	pr_info("mqnic_char_dev: char_dev_mmap\n");
+
+	char_dev = (struct mq_char_dev *)file->private_data;
+	vma->vm_flags |=  VM_DONTEXPAND | VM_DONTDUMP;
+	vma->vm_private_data = char_dev;
+	vma->vm_ops = &vm_ops;
+	vm_mmap_open(vma);
+/*
+	vma->vm_pgoff = virt_to_phys(char_dev->dev_buf) >> PAGE_SHIFT;
+
+	status = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+	                         vma->vm_end - vma->vm_start, vma->vm_page_prot);
+	if (status) {
+		printk("my_mmap - Error remap_pfn_range: %d\n", status);
+		return -EAGAIN;
+	}
 */
+	return 0;
+}
+
 
 static const struct file_operations ctrl_fops = {
 		.owner = THIS_MODULE,
@@ -251,6 +269,7 @@ static const struct file_operations ctrl_log_fops = {
 		.open = char_open,
 		.release = char_close,
 		.read = char_read_log,
+		.mmap = char_dev_mmap
 };
 
 #define MQNIC_LOG_BUF_SIZE 16*1024*1024
@@ -260,7 +279,7 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	int rv;
 	dev_t dev;
 
-	pr_notice("mqnic_char_device: create_mq_char_device %s", name);
+	pr_info("mqnic_char_device: create_mq_char_device %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -271,10 +290,11 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	char_dev->bar = 0;
 	char_dev->bar_size = 0;
 
-	char_dev->dev_buf = vzalloc(MQNIC_LOG_BUF_SIZE);
+	char_dev->dev_buf = vmalloc_user(MQNIC_LOG_BUF_SIZE);
 	if (!char_dev->dev_buf)
 		goto free_cdev;
 	char_dev->dev_buf_size = MQNIC_LOG_BUF_SIZE;
+	//((char*)char_dev->dev_buf)[0] = 0;
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
@@ -315,7 +335,7 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	}
 
 
-	pr_notice("create_mq_char_log_device %s succeeded", name);
+	pr_info("create_mq_char_log_device %s succeeded", name);
 
 	return char_dev;
 
@@ -338,7 +358,7 @@ struct mq_char_dev *create_mq_char_device(const char* name, int num,
 	int rv;
 	dev_t dev;
 
-	pr_notice("mqnic_char_device: create_mq_char_device %s", name);
+	pr_info("mqnic_char_device: create_mq_char_device %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -390,7 +410,7 @@ struct mq_char_dev *create_mq_char_device(const char* name, int num,
 	}
 
 
-	pr_notice("mqnic_char_device: create_mq_char_device %s succeeded", name);
+	pr_info("mqnic_char_device: create_mq_char_device %s succeeded", name);
 
 	return char_dev;
 
@@ -405,7 +425,7 @@ free_cdev:
 
 void destroy_mq_char_device(struct mq_char_dev *char_dev)
 {
-	pr_notice("mqnic_char_device: destroy_mq_char_device");
+	pr_info("mqnic_char_device: destroy_mq_char_device");
 	if (!char_dev)
 	{
 		pr_err("destroy_mq_char_device: char_dev is empty");
@@ -421,7 +441,7 @@ void destroy_mq_char_device(struct mq_char_dev *char_dev)
 
 void mq_free_char_dev(struct mq_char_dev *char_dev)
 {
-	pr_notice("mqnic_char_device mq_free_char_dev");
+	pr_info("mqnic_char_device mq_free_char_dev");
 	if (char_dev->dev_buf)
 	{
 		vfree(char_dev->dev_buf);
@@ -450,7 +470,7 @@ int mq_cdev_init(void)
 		return -ENOMEM;
 	}*/
 
-	pr_notice("mqnic_char_device: mq_cdev_init finished");
+	pr_info("mqnic_char_device: mq_cdev_init finished");
 
 	return 0;
 }
@@ -463,5 +483,5 @@ void mqnic_cdev_cleanup(void)
 	if (g_mqnic_class)
 		class_destroy(g_mqnic_class);
 
-	pr_notice("mqnic_char_device: mqnic_cdev_cleanup finished");
+	pr_info("mqnic_char_device: mqnic_cdev_cleanup finished");
 }
