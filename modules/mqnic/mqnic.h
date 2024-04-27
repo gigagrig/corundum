@@ -481,6 +481,11 @@ struct mq_char_dev {
 	struct cdev cdev;
 };
 
+struct MqniqDevSharedMemory
+{
+	char *log;
+};
+
 
 // mqnic_main.c
 extern u64 g_base_reg_addr;

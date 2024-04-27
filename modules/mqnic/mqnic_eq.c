@@ -9,7 +9,7 @@ static int mqnic_eq_int(struct notifier_block *nb, unsigned long action, void *d
 {
 	struct mqnic_eq *eq = container_of(nb, struct mqnic_eq, irq_nb);
 
-	dev_info(eq->dev, "mqnic_eq_int\n");
+	//printk("mqnic_eq_int\n");
 
 	mqnic_process_eq(eq);
 	mqnic_arm_eq(eq);
