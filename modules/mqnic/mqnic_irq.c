@@ -9,7 +9,7 @@ static irqreturn_t mqnic_irq_handler(int irqn, void *data)
 {
 	struct mqnic_irq *irq = data;
 
-	printk(KERN_INFO "mqnic_irq_handler %s irqn = %i, index = %i\n", irq->name, irqn, irq->index);
+	//printk(KERN_INFO "mqnic_irq_handler irqn = %i, index = %i\n", irq->name, irqn, irq->index);
 
 	atomic_notifier_call_chain(&irq->nh, 0, NULL);
 

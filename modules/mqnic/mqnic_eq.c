@@ -186,19 +186,19 @@ void mqnic_eq_read_prod_ptr(struct mqnic_eq *eq)
 
 void mqnic_eq_write_cons_ptr(struct mqnic_eq *eq)
 {
-	u32 val = MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK);
-	dev_info(eq->dev, "mqnic_eq_write_cons_ptr (Base+0x08 Control/status) <- 0x%08x", val);
+	//u32 val = MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK);
+	//dev_info(eq->dev, "mqnic_eq_write_cons_ptr (Base+0x08 Control/status) <- 0x%08x", val);
 	mqnic_write_register(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
 			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_arm_eq(struct mqnic_eq *eq)
 {
-	u32 val;
+	//u32 val;
 	if (!eq->enabled)
 		return;
-	val = MQNIC_EQ_CMD_SET_ARM | 1;
-	dev_info(eq->dev, "mqnic_arm_eq (Base+0x08 Control/status) <- 0x%08x", val);
+	//val = MQNIC_EQ_CMD_SET_ARM | 1;
+	//dev_info(eq->dev, "mqnic_arm_eq (Base+0x08 Control/status) <- 0x%08x", val);
 	mqnic_write_register(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
@@ -220,9 +220,9 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
 			break;
 
-		dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x\n",
-		         __func__, interface->index, eq->eqn, eq_index,
-		         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
+		//dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x\n",
+		//         __func__, interface->index, eq->eqn, eq_index,
+		//         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
 
 
 		dma_rmb();
