@@ -327,7 +327,7 @@ static const struct file_operations ctrl_tx_fops = {
 
 
 
-#define MQNIC_TX_BUF_SIZE 16*1024*1024
+#define MQNIC_TX_BUF_SIZE 4096
 struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num)
 {
 	struct mq_char_dev *char_dev;
@@ -349,7 +349,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	char_dev->dev_buf = dma_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
 	if (!char_dev->dev_buf)
 	{
-		pr_err("create_mq_char_tx: dma_alloc_coherent faied.\n");
+		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
 
 		goto free_cdev;
 	}
@@ -619,16 +619,6 @@ int mq_cdev_init(void)
 		pr_err("mq_cdev_init: failed to create class %s", MQ_NODE_NAME);
 		return -EINVAL;
 	}
-
-	/* using kmem_cache_create to enable sequential cleanup */
-/*	cdev_cache = kmem_cache_create("cdev_cache",
-	                               sizeof(struct cdev_async_io), 0,
-	                               SLAB_HWCACHE_ALIGN, NULL);
-
-	if (!cdev_cache) {
-		pr_info("memory allocation for cdev_cache failed. OOM\n");
-		return -ENOMEM;
-	}*/
 
 	pr_info("mqnic_char_device: mq_cdev_init finished");
 

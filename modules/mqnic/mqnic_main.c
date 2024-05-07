@@ -721,7 +721,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	mqnic->char_app_dev = 0;
 	mqnic->char_reg_dev = create_mq_char_device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
 	if (!mqnic->char_reg_dev)
-		goto fail_common;
+		goto fail_reg_dev;
 
 	mqnic->char_log_dev = create_mq_char_log_device("mqnic_log", 1);
 	if (!mqnic->char_log_dev)
@@ -738,28 +738,31 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// Common init
 	ret = mqnic_common_probe(mqnic);
 	if (ret)
-		goto fail_char_common_probe;
+		goto fail_common_probe;
 
 	dev_info(dev, DRIVER_NAME " PCI probe");
 
 	// probe complete
 	return 0;
 
-fail_char_common_probe:
+fail_common_probe:
 	mq_free_tx_char_dev(mqnic->char_tx_dev);
+	mqnic->char_tx_dev = 0;
 
 fail_tx_char_dev:
 	mq_free_log_char_dev(mqnic->char_log_dev);
+	mqnic->char_log_dev = 0;
 
 fail_char_log_dev:
-	mq_free_char_dev(mqnic->char_ram_dev);
+	mq_free_char_dev(mqnic->char_reg_dev);
+	mqnic->char_ram_dev = 0;
 
 // error handling
-fail_common:
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);
 fail_reset:
 fail_init_irq:
+fail_reg_dev:
 fail_map_bars:
 	if (mqnic->hw_addr)
 		pci_iounmap(pdev, mqnic->hw_addr);
