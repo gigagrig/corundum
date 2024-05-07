@@ -52,6 +52,15 @@ struct mqnic_dev;
 struct mqnic_if;
 struct mq_char_dev;
 
+struct mqnic_shmem {
+	int magic_; // 0x789a
+	int version_;
+	void *tx_data_;
+	void *tx_data_size_;
+	struct mqnic_desc *tx_desc_queues[];
+
+};
+
 struct mqnic_res {
 	unsigned int count;
 	u8 __iomem *base;
@@ -119,6 +128,8 @@ struct mqnic_dev {
 	struct mq_char_dev *char_app_dev;
 	struct mq_char_dev *char_ram_dev;
 	struct mq_char_dev *char_log_dev;
+	struct mq_char_dev *char_tx_dev;
+
 
 	resource_size_t hw_regs_size;
 	phys_addr_t hw_regs_phys;
@@ -473,11 +484,13 @@ struct mqnic_priv {
 struct mq_char_dev {
 	u8 __iomem *bar;	/* addresses for mapped BARs */
 	resource_size_t bar_size;
+	struct mqnic_dev *mqniq;
 	struct device *sys_device;	/* sysfs device */
 	int major;
 	dev_t cdevno;
 	void *dev_buf;
 	size_t dev_buf_size;
+	dma_addr_t dma_handle;
 	struct cdev cdev;
 };
 
@@ -673,7 +686,10 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 //
 struct mq_char_dev *create_mq_char_device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
 struct mq_char_dev *create_mq_char_log_device(const char* name, int num);
+struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num);
 void mq_free_char_dev(struct mq_char_dev *char_dev);
+void mq_free_tx_char_dev(struct mq_char_dev *char_dev);
+void mq_free_log_char_dev(struct mq_char_dev *char_dev);
 int mq_cdev_init(void);
 void mqnic_cdev_cleanup(void);
 

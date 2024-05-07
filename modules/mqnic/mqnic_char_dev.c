@@ -2,7 +2,7 @@
 
 static struct class *g_mqnic_class;
 #define MQ_NODE_NAME	"mqnic_char"
-#define MQ_CHAR_DEV_COUNT 4
+#define MQ_CHAR_DEV_COUNT 3
 
 
 int char_open(struct inode *inode, struct file *file)
@@ -205,7 +205,6 @@ vm_fault_t vm_mmap_fault(struct vm_fault *vmf)
 		return -ENODEV;
 	}
 	pr_info("vm_mmap_fault\n");
-	//page = virt_to_page(char_dev->dev_buf + vmf->pgoff);
 	page = vmalloc_to_page(char_dev->dev_buf + (vmf->pgoff << PAGE_SHIFT));
 	get_page(page);
 	vmf->page = page;
@@ -242,16 +241,6 @@ int char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_private_data = char_dev;
 	vma->vm_ops = &vm_ops;
 	vm_mmap_open(vma);
-/*
-	vma->vm_pgoff = virt_to_phys(char_dev->dev_buf) >> PAGE_SHIFT;
-
-	status = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-	                         vma->vm_end - vma->vm_start, vma->vm_page_prot);
-	if (status) {
-		printk("my_mmap - Error remap_pfn_range: %d\n", status);
-		return -EAGAIN;
-	}
-*/
 	return 0;
 }
 
@@ -272,6 +261,155 @@ static const struct file_operations ctrl_log_fops = {
 		.mmap = char_dev_mmap
 };
 
+
+vm_fault_t tx_mmap_fault(struct vm_fault *vmf)
+{
+	int ret;
+	struct mq_char_dev *char_dev;
+
+	char_dev = (struct mq_char_dev *)vmf->vma->vm_private_data;
+	if (!char_dev) {
+		pr_err("tx_mmap_fault: no device\n");
+		return -ENODEV;
+	}
+	pr_info("tx_mmap_fault\n");
+
+	ret = dma_mmap_attrs(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, vmf->vma->vm_end - vmf->vma->vm_start, 0);
+
+	if (!ret)
+	{
+		pr_info("tx_mmap_fault failed, code %i\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+void tx_mmap_close(struct vm_area_struct * area)
+{
+	pr_info("tx_mmap_close\n");
+}
+void tx_mmap_open(struct vm_area_struct * area)
+{
+	pr_info("tx_mmap_open\n");
+}
+
+
+static struct vm_operations_struct tx_vm_ops =
+		{
+				.close = tx_mmap_close,
+				.fault = tx_mmap_fault,
+				.open = tx_mmap_open,
+		};
+
+
+int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct mq_char_dev *char_dev;
+
+	pr_info("tx_char_dev_mmap\n");
+
+	char_dev = (struct mq_char_dev *)file->private_data;
+	vma->vm_flags |=  VM_DONTEXPAND | VM_DONTDUMP;
+	vma->vm_private_data = char_dev;
+	vma->vm_ops = &tx_vm_ops;
+	tx_mmap_open(vma);
+	return 0;
+}
+
+static const struct file_operations ctrl_tx_fops = {
+		.owner = THIS_MODULE,
+		//.open = char_open,
+		//.release = char_close,
+		//.read = char_read_log,
+		.mmap = tx_char_dev_mmap
+};
+
+
+
+#define MQNIC_TX_BUF_SIZE 16*1024*1024
+struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num)
+{
+	struct mq_char_dev *char_dev;
+	int rv;
+	dev_t dev;
+
+	pr_info("create_mq_char_tx %s", name);
+	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
+
+	if (!char_dev)
+		return NULL;
+	memset(char_dev, 0, sizeof(*char_dev));
+
+	char_dev->mqniq = mqnic;
+	char_dev->cdev.owner = THIS_MODULE;
+	char_dev->bar = 0;
+	char_dev->bar_size = 0;
+
+	char_dev->dev_buf = dma_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
+	if (!char_dev->dev_buf)
+	{
+		pr_err("create_mq_char_tx: dma_alloc_coherent faied.\n");
+
+		goto free_cdev;
+	}
+	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
+
+	rv = kobject_set_name(&char_dev->cdev.kobj, name);
+
+	if (rv)
+	{
+		pr_err("create_mq_char_tx: kobject_set_name faied.\n");
+		goto free_cdev;
+	}
+
+	if (num == 0)
+	{
+		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
+		if (rv)
+		{
+			pr_err("create_mq_char_tx: unable to allocate cdev region %d.\n", rv);
+			goto free_cdev;
+		}
+	}
+
+	cdev_init(&char_dev->cdev, &ctrl_tx_fops);
+
+	char_dev->major = MAJOR(dev);
+
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + num);
+
+	/* bring character device live */
+	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
+	if (rv < 0) {
+		pr_err("create_mq_char_tx: cdev_add %s failed %d\n", name, rv);
+		goto unregister_region;
+	}
+
+	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
+
+	if (!char_dev->sys_device) {
+		pr_err("create_mq_char_tx: device_create(%s) failed\n", name);
+		goto unregister_region;
+	}
+
+
+	pr_info("create_mq_char_tx %s succeeded", name);
+
+	return char_dev;
+
+	unregister_region:
+	unregister_chrdev_region(char_dev->cdevno, MQ_CHAR_DEV_COUNT);
+free_cdev:
+	if (char_dev->dev_buf)
+	{
+		vfree(char_dev->dev_buf);
+		char_dev->dev_buf = 0;
+	}
+	kfree(char_dev);
+	return NULL;
+}
+
 #define MQNIC_LOG_BUF_SIZE 16*1024*1024
 struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 {
@@ -279,7 +417,7 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	int rv;
 	dev_t dev;
 
-	pr_info("mqnic_char_device: create_mq_char_device %s", name);
+	pr_info("create_mq_char_log_device: create_mq_char_device %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -294,13 +432,12 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	if (!char_dev->dev_buf)
 		goto free_cdev;
 	char_dev->dev_buf_size = MQNIC_LOG_BUF_SIZE;
-	//((char*)char_dev->dev_buf)[0] = 0;
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
 	if (rv)
 	{
-		pr_err("create_mq_char_device: kobject_set_name faied.\n");
+		pr_err("create_mq_char_log_device: kobject_set_name faied.\n");
 		goto free_cdev;
 	}
 
@@ -441,6 +578,28 @@ void destroy_mq_char_device(struct mq_char_dev *char_dev)
 
 void mq_free_char_dev(struct mq_char_dev *char_dev)
 {
+	if (!char_dev)
+		return;
+	pr_info("mqnic_char_device mq_free_char_dev");
+	destroy_mq_char_device(char_dev);
+	kfree(char_dev);
+}
+
+void mq_free_tx_char_dev(struct mq_char_dev *char_dev)
+{
+	if (!char_dev)
+		return;
+	pr_info("mqnic_char_device mq_free_char_dev");
+	dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
+	char_dev->dev_buf = 0;
+	destroy_mq_char_device(char_dev);
+	kfree(char_dev);
+}
+
+void mq_free_log_char_dev(struct mq_char_dev *char_dev)
+{
+	if (!char_dev)
+		return;
 	pr_info("mqnic_char_device mq_free_char_dev");
 	if (char_dev->dev_buf)
 	{
@@ -450,6 +609,7 @@ void mq_free_char_dev(struct mq_char_dev *char_dev)
 	destroy_mq_char_device(char_dev);
 	kfree(char_dev);
 }
+
 
 
 int mq_cdev_init(void)

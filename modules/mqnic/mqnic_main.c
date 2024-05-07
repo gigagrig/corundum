@@ -539,14 +539,11 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
 
-	if (mqnic->char_reg_dev)
-		mq_free_char_dev(mqnic->char_reg_dev);
-	if (mqnic->char_app_dev)
-		mq_free_char_dev(mqnic->char_app_dev);
-	if (mqnic->char_ram_dev)
-		mq_free_char_dev(mqnic->char_ram_dev);
-	if (mqnic->char_log_dev)
-		mq_free_char_dev(mqnic->char_log_dev);
+	mq_free_char_dev(mqnic->char_reg_dev);
+	mq_free_char_dev(mqnic->char_app_dev);
+	mq_free_char_dev(mqnic->char_ram_dev);
+	mq_free_log_char_dev(mqnic->char_log_dev);
+	mq_free_tx_char_dev(mqnic->char_tx_dev);
 	g_log_buf = 0;
 	g_log_buf_size = 0;
 
@@ -671,6 +668,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	mqnic->ram_hw_regs_phys = pci_resource_start(pdev, 4);
 
 	// Map BARs
+	dev_info(dev, "dma_can_mmap = %i\n", dma_can_mmap(dev));
 	dev_info(dev, "Control BAR size: %llu", mqnic->hw_regs_size);
 	mqnic->hw_addr = pci_ioremap_bar(pdev, 0);
 	if (!mqnic->hw_addr) {
@@ -719,23 +717,23 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	pci_set_master(pdev);
 
 	// char device
+	mqnic->char_ram_dev = 0;
+	mqnic->char_app_dev = 0;
 	mqnic->char_reg_dev = create_mq_char_device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
 	if (!mqnic->char_reg_dev)
 		goto fail_common;
-	mqnic->char_app_dev = create_mq_char_device("mqnic_app", 1, mqnic->app_hw_addr, mqnic->app_hw_regs_size);
-	if (!mqnic->char_app_dev)
-		goto fail_char_app_dev;
-	mqnic->char_ram_dev = create_mq_char_device("mqnic_ram", 2, mqnic->ram_hw_addr, mqnic->ram_hw_regs_size);
-	if (!mqnic->char_ram_dev)
-		goto fail_char_ram_dev;
 
-	mqnic->char_log_dev = create_mq_char_log_device("mqnic_log", 3);
+	mqnic->char_log_dev = create_mq_char_log_device("mqnic_log", 1);
 	if (!mqnic->char_log_dev)
 		goto fail_char_log_dev;
 
 	g_log_buf = mqnic->char_log_dev->dev_buf;
 	g_log_buf_size = mqnic->char_log_dev->dev_buf_size - 1; // last for 0
 	g_log_pos = 0;
+
+	mqnic->char_tx_dev = create_mq_char_tx(mqnic, "mqnic_tx", 2);
+	if (!mqnic->char_tx_dev)
+		goto fail_tx_char_dev;
 
 	// Common init
 	ret = mqnic_common_probe(mqnic);
@@ -748,16 +746,13 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	return 0;
 
 fail_char_common_probe:
-	mq_free_char_dev(mqnic->char_log_dev);
+	mq_free_tx_char_dev(mqnic->char_tx_dev);
+
+fail_tx_char_dev:
+	mq_free_log_char_dev(mqnic->char_log_dev);
 
 fail_char_log_dev:
 	mq_free_char_dev(mqnic->char_ram_dev);
-
-fail_char_ram_dev:
-	mq_free_char_dev(mqnic->char_app_dev);
-
-fail_char_app_dev:
-	mq_free_char_dev(mqnic->char_reg_dev);
 
 // error handling
 fail_common:
