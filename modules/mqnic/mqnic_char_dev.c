@@ -274,46 +274,25 @@ vm_fault_t tx_mmap_fault(struct vm_fault *vmf)
 	}
 	pr_info("tx_mmap_fault\n");
 
-	ret = dma_mmap_coherent(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, vmf->vma->vm_end - vmf->vma->vm_start);
+	ret = dma_mmap_coherent(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, char_dev->dev_buf_size);
 
 	if (ret != 0)
 	{
 		pr_info("tx_mmap_fault failed, code %i\n", ret);
 		return -EFAULT;
 	}
-
+	pr_info("tx_mmap_fault succeeded\n");
 	return 0;
 }
-
-void tx_mmap_close(struct vm_area_struct * area)
-{
-	pr_info("tx_mmap_close\n");
-}
-void tx_mmap_open(struct vm_area_struct * area)
-{
-	pr_info("tx_mmap_open\n");
-}
-
-
-static struct vm_operations_struct tx_vm_ops =
-		{
-				.close = tx_mmap_close,
-				.fault = tx_mmap_fault,
-				.open = tx_mmap_open,
-		};
-
 
 int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct mq_char_dev *char_dev;
-
+	int ret;
 	pr_info("tx_char_dev_mmap\n");
-
 	char_dev = (struct mq_char_dev *)file->private_data;
-	vma->vm_flags |=  VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_private_data = char_dev;
-	vma->vm_ops = &tx_vm_ops;
-	tx_mmap_open(vma);
+	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, char_dev->dev_buf_size);
 	return 0;
 }
 
@@ -333,6 +312,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	struct mq_char_dev *char_dev;
 	int rv;
 	dev_t dev;
+	u8 *tx_data;
 
 	pr_info("create_mq_char_tx %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
@@ -353,6 +333,11 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	{
 		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
 		goto free_cdev;
+	}
+	tx_data = char_dev->dev_buf;
+	for (rv = 0; rv < char_dev->dev_buf_size; ++rv)
+	{
+		tx_data[rv] = rv;
 	}
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
