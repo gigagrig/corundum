@@ -274,12 +274,12 @@ vm_fault_t tx_mmap_fault(struct vm_fault *vmf)
 	}
 	pr_info("tx_mmap_fault\n");
 
-	ret = dma_mmap_attrs(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, vmf->vma->vm_end - vmf->vma->vm_start, 0);
+	ret = dma_mmap_coherent(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, vmf->vma->vm_end - vmf->vma->vm_start);
 
-	if (!ret)
+	if (ret != 0)
 	{
 		pr_info("tx_mmap_fault failed, code %i\n", ret);
-		return ret;
+		return -EFAULT;
 	}
 
 	return 0;
