@@ -327,7 +327,7 @@ static const struct file_operations ctrl_tx_fops = {
 
 
 
-#define MQNIC_TX_BUF_SIZE 4096
+#define MQNIC_TX_BUF_SIZE 4*1024
 struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num)
 {
 	struct mq_char_dev *char_dev;
@@ -346,14 +346,14 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	char_dev->bar = 0;
 	char_dev->bar_size = 0;
 
+	char_dev->dev_buf = 0;
+	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
 	char_dev->dev_buf = dma_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
-	if (!char_dev->dev_buf)
+s	if (!char_dev->dev_buf)
 	{
 		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
-
 		goto free_cdev;
 	}
-	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
@@ -400,10 +400,11 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 
 	unregister_region:
 	unregister_chrdev_region(char_dev->cdevno, MQ_CHAR_DEV_COUNT);
+
 free_cdev:
 	if (char_dev->dev_buf)
 	{
-		vfree(char_dev->dev_buf);
+		dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 		char_dev->dev_buf = 0;
 	}
 	kfree(char_dev);
@@ -580,7 +581,7 @@ void mq_free_char_dev(struct mq_char_dev *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mqnic_char_device mq_free_char_dev");
+	pr_info("mqnic_char_device %u\n", char_dev->cdevno);
 	destroy_mq_char_device(char_dev);
 	kfree(char_dev);
 }
@@ -589,7 +590,7 @@ void mq_free_tx_char_dev(struct mq_char_dev *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mqnic_char_device mq_free_char_dev");
+	pr_info("mq_free_tx_char_dev %u\n", char_dev->cdevno);
 	dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 	char_dev->dev_buf = 0;
 	destroy_mq_char_device(char_dev);
@@ -600,7 +601,7 @@ void mq_free_log_char_dev(struct mq_char_dev *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mqnic_char_device mq_free_char_dev");
+	pr_info("mq_free_log_char_dev %u\n", char_dev->cdevno);
 	if (char_dev->dev_buf)
 	{
 		vfree(char_dev->dev_buf);
@@ -609,7 +610,6 @@ void mq_free_log_char_dev(struct mq_char_dev *char_dev)
 	destroy_mq_char_device(char_dev);
 	kfree(char_dev);
 }
-
 
 
 int mq_cdev_init(void)
