@@ -319,7 +319,7 @@ int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 
 static const struct file_operations ctrl_tx_fops = {
 		.owner = THIS_MODULE,
-		//.open = char_open,
+		.open = char_open,
 		//.release = char_close,
 		//.read = char_read_log,
 		.mmap = tx_char_dev_mmap
@@ -327,7 +327,7 @@ static const struct file_operations ctrl_tx_fops = {
 
 
 
-#define MQNIC_TX_BUF_SIZE 4*1024
+#define MQNIC_TX_BUF_SIZE 1024*1024
 struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num)
 {
 	struct mq_char_dev *char_dev;

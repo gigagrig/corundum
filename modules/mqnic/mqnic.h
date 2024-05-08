@@ -52,15 +52,6 @@ struct mqnic_dev;
 struct mqnic_if;
 struct mq_char_dev;
 
-struct mqnic_shmem {
-	int magic_; // 0x789a
-	int version_;
-	void *tx_data_;
-	void *tx_data_size_;
-	struct mqnic_desc *tx_desc_queues[];
-
-};
-
 struct mqnic_res {
 	unsigned int count;
 	u8 __iomem *base;
