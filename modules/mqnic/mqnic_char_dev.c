@@ -349,7 +349,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	char_dev->dev_buf = 0;
 	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
 	char_dev->dev_buf = dma_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
-s	if (!char_dev->dev_buf)
+	if (!char_dev->dev_buf)
 	{
 		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
 		goto free_cdev;
