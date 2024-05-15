@@ -285,6 +285,10 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 
 	int k = 0, l = 0;
 
+	printk("ilog2 1 = %i 2 = %i 3 = %i 4 = %i\n", ilog2(1), ilog2(2),  ilog2(3), ilog2(4));
+	printk("roundup_pow_of_two 1 = %lu 2 = %lu 3 = %lu 4 = %lu\n", roundup_pow_of_two(1), roundup_pow_of_two(2),  roundup_pow_of_two(3), roundup_pow_of_two(4));
+
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	devlink_register(devlink);
 #else

@@ -79,7 +79,9 @@ int mqnic_open_tx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	ring->prod_ptr = 0;
 	ring->cons_ptr = 0;
 
-	mqnic_log("mqnic_open_tx_ring 0x%x\n", (u32)(u64)(ring->hw_addr - g_base_reg_addr));
+	mqnic_log("mqnic_open_tx_ring 0x%x,  desc_size = %i -> %u, log_desc_block_size = %u\n",
+			  (u32)(u64)(ring->hw_addr - g_base_reg_addr),
+			  desc_block_size, ring->desc_block_size, ring->log_desc_block_size);
 
 	// deactivate queue
 	//val = MQNIC_QUEUE_CMD_SET_ENABLE | 0;
@@ -169,8 +171,7 @@ int mqnic_enable_tx_ring(struct mqnic_ring *ring)
 	dev_info(ring->dev, "mqnic_enable_tx_ring (Base+0x08 Control/status) <- 0x%08x", val);
 
 	// enable queue
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 1,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 1, ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 
 	ring->enabled = 1;
 
