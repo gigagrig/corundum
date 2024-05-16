@@ -304,6 +304,20 @@ static const struct file_operations ctrl_tx_fops = {
 		.mmap = tx_char_dev_mmap
 };
 
+// 64 bytes header
+struct DmaBufferHeader
+{
+	u32 header_size;
+	u32 buffer_size;
+	u64 dma_buf_handle;
+	u64 reserved0;
+	u64 reserved1;
+	u64 reserved2;
+	u64 reserved3;
+	u64 reserved4;
+	u64 reserved5;
+};
+
 
 
 #define MQNIC_TX_BUF_SIZE 1024*1024
@@ -313,6 +327,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	int rv;
 	dev_t dev;
 	u8 *tx_data;
+	struct DmaBufferHeader *dma_buf_header;
 
 	pr_info("create_mq_char_tx %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
@@ -335,10 +350,10 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 		goto free_cdev;
 	}
 	tx_data = char_dev->dev_buf;
-	for (rv = 0; rv < char_dev->dev_buf_size; ++rv)
-	{
-		tx_data[rv] = rv;
-	}
+	dma_buf_header = (struct DmaBufferHeader *)tx_data;
+	dma_buf_header->header_size = 64;
+	dma_buf_header->dma_buf_handle = char_dev->dma_handle;
+	dma_buf_header->buffer_size = char_dev->dev_buf_size;
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
