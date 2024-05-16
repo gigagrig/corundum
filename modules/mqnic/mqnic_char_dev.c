@@ -312,10 +312,8 @@ struct DmaBufferHeader
 	u64 dma_buf_handle;
 	u64 reserved0;
 	u64 reserved1;
-	u64 reserved2;
 	u64 reserved3;
-	u64 reserved4;
-	u64 reserved5;
+	char name[24];
 };
 
 
@@ -354,6 +352,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	dma_buf_header->header_size = 64;
 	dma_buf_header->dma_buf_handle = char_dev->dma_handle;
 	dma_buf_header->buffer_size = char_dev->dev_buf_size;
+	strncpy(dma_buf_header->name, name, 24);
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
