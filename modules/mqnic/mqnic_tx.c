@@ -360,6 +360,7 @@ int mqnic_poll_tx_cq(struct napi_struct *napi, int budget)
 	return done;
 }
 
+
 static bool mqnic_map_skb(struct mqnic_ring *ring, struct mqnic_tx_info *tx_info,
 		struct mqnic_desc *tx_desc, struct sk_buff *skb)
 {
@@ -368,6 +369,9 @@ static bool mqnic_map_skb(struct mqnic_ring *ring, struct mqnic_tx_info *tx_info
 	u32 i;
 	u32 len;
 	dma_addr_t dma_addr;
+#define log_buf_size 128
+	char log_buf[log_buf_size*5+1];
+	char *log_buf_ptr;
 
 	// update tx_info
 	tx_info->skb = skb;
@@ -399,7 +403,13 @@ static bool mqnic_map_skb(struct mqnic_ring *ring, struct mqnic_tx_info *tx_info
 	// map skb
 	len = skb_headlen(skb);
 	dma_addr = dma_map_single(ring->dev, skb->data, len, DMA_TO_DEVICE);
+	log_buf_ptr = log_buf;
+	for (i = 0; i < log_buf_size && i > len; ++i)
+		log_buf_ptr += sprintf(log_buf_ptr, "%02x", skb->data[i]);
+	*log_buf_ptr = 0;
 
+	printk("%s\n", log_buf);
+	
 	if (unlikely(dma_mapping_error(ring->dev, dma_addr)))
 		// mapping failed
 		goto map_error;
