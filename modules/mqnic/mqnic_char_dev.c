@@ -155,8 +155,8 @@ static ssize_t char_read(struct file *file, char __user *buf,
 	return rc;
 }
 
-static ssize_t char_read_log(struct file *file, char __user *buf,
-                         size_t count, loff_t *pos)
+static ssize_t char_read_dev_buf(struct file *file, char __user *buf,
+                                 size_t count, loff_t *pos)
 {
 	struct mq_char_dev *char_dev;
 	int rc;
@@ -164,11 +164,11 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 	char *base_addr;
 	char *dev_buf_end;
 
-	pr_info("char_read_log: %lli:%li\n", *pos, count);
+	pr_info("char_read_dev_buf: %lli:%li\n", *pos, count);
 
 	if (!buf)
 	{
-		pr_err("char_read_log: Caught NULL pointer\n");
+		pr_err("char_read_dev_buf: Caught NULL pointer\n");
 		return -EINVAL;
 	}
 
@@ -187,7 +187,7 @@ static ssize_t char_read_log(struct file *file, char __user *buf,
 		}
 		else
 		{
-			pr_err("char_read_log: Error writing data to userspace buffer\n");
+			pr_err("char_read_dev_buf: Error writing data to userspace buffer\n");
 			rc = -EINVAL;
 		}
 	}
@@ -257,7 +257,7 @@ static const struct file_operations ctrl_log_fops = {
 		.owner = THIS_MODULE,
 		.open = char_open,
 		.release = char_close,
-		.read = char_read_log,
+		.read = char_read_dev_buf,
 		.mmap = char_dev_mmap
 };
 
@@ -278,7 +278,7 @@ static const struct file_operations ctrl_tx_fops = {
 		.owner = THIS_MODULE,
 		.open = char_open,
 		//.release = char_close,
-		//.read = char_read_log,
+		.read = char_read_dev_buf,
 		.mmap = tx_char_dev_mmap
 };
 
