@@ -262,29 +262,6 @@ static const struct file_operations ctrl_log_fops = {
 };
 
 
-vm_fault_t tx_mmap_fault(struct vm_fault *vmf)
-{
-	int ret;
-	struct mq_char_dev *char_dev;
-
-	char_dev = (struct mq_char_dev *)vmf->vma->vm_private_data;
-	if (!char_dev) {
-		pr_err("tx_mmap_fault: no device\n");
-		return -ENODEV;
-	}
-	pr_info("tx_mmap_fault\n");
-
-	ret = dma_mmap_coherent(char_dev->mqniq->dev, vmf->vma, char_dev->dev_buf, char_dev->dma_handle, char_dev->dev_buf_size);
-
-	if (ret != 0)
-	{
-		pr_info("tx_mmap_fault failed, code %i\n", ret);
-		return -EFAULT;
-	}
-	pr_info("tx_mmap_fault succeeded\n");
-	return 0;
-}
-
 int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct mq_char_dev *char_dev;
@@ -292,7 +269,8 @@ int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	pr_info("tx_char_dev_mmap\n");
 	char_dev = (struct mq_char_dev *)file->private_data;
 	vma->vm_private_data = char_dev;
-	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, char_dev->dev_buf_size);
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, vma->vm_end - vma->vm_start);
 	return 0;
 }
 
@@ -341,7 +319,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 
 	char_dev->dev_buf = 0;
 	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
-	char_dev->dev_buf = dma_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
+	char_dev->dev_buf = dmam_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
 	if (!char_dev->dev_buf)
 	{
 		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
@@ -403,7 +381,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 free_cdev:
 	if (char_dev->dev_buf)
 	{
-		dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
+		//dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 		char_dev->dev_buf = 0;
 	}
 	kfree(char_dev);
@@ -590,7 +568,7 @@ void mq_free_tx_char_dev(struct mq_char_dev *char_dev)
 	if (!char_dev)
 		return;
 	pr_info("mq_free_tx_char_dev %u\n", char_dev->cdevno);
-	dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
+	//dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 	char_dev->dev_buf = 0;
 	destroy_mq_char_device(char_dev);
 	kfree(char_dev);
