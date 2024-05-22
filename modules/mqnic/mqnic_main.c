@@ -547,7 +547,8 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	mq_free_char_dev(mqnic->char_app_dev);
 	mq_free_char_dev(mqnic->char_ram_dev);
 	mq_free_log_char_dev(mqnic->char_log_dev);
-	mq_free_tx_char_dev(mqnic->char_tx_dev);
+	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
+		mq_free_dma_char_dev(mqnic->char_dma_dev[k]);
 	g_log_buf = 0;
 	g_log_buf_size = 0;
 
@@ -558,6 +559,7 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int ret = 0;
+	int k;
 	struct mqnic_dev *mqnic;
 	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
@@ -735,9 +737,15 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	g_log_buf_size = mqnic->char_log_dev->dev_buf_size - 1; // last for 0
 	g_log_pos = 0;
 
-	mqnic->char_tx_dev = create_mq_char_tx(mqnic, "mqnic_tx0", 2);
-	if (!mqnic->char_tx_dev)
-		goto fail_tx_char_dev;
+	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
+
+	mqnic->char_dma_dev[0] = create_mq_char_dma(mqnic, "mqnic_dma0", 2);
+	if (mqnic->char_dma_dev[0])
+		goto fail_dma_char_dev;
+
+	mqnic->char_dma_dev[1] = create_mq_char_dma(mqnic, "mqnic_dma1", 3);
+	if (mqnic->char_dma_dev[1])
+		goto fail_dma_char_dev;
 
 	// Common init
 	ret = mqnic_common_probe(mqnic);
@@ -750,10 +758,13 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	return 0;
 
 fail_common_probe:
-	mq_free_tx_char_dev(mqnic->char_tx_dev);
-	mqnic->char_tx_dev = 0;
+	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
+	{
+		mq_free_dma_char_dev(mqnic->char_dma_dev[k]);
+		mqnic->char_dma_dev[k] = 0;
+	}
 
-fail_tx_char_dev:
+fail_dma_char_dev:
 	mq_free_log_char_dev(mqnic->char_log_dev);
 	mqnic->char_log_dev = 0;
 

@@ -2,7 +2,7 @@
 
 static struct class *g_mqnic_class;
 #define MQ_NODE_NAME	"mqnic_char"
-#define MQ_CHAR_DEV_COUNT 3
+#define MQ_CHAR_DEV_COUNT 16
 
 
 int char_open(struct inode *inode, struct file *file)
@@ -262,11 +262,11 @@ static const struct file_operations ctrl_log_fops = {
 };
 
 
-int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
+int dma_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct mq_char_dev *char_dev;
 	int ret;
-	pr_info("tx_char_dev_mmap\n");
+	pr_info("dma_char_dev_mmap\n");
 	char_dev = (struct mq_char_dev *)file->private_data;
 	vma->vm_private_data = char_dev;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
@@ -274,12 +274,12 @@ int tx_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-static const struct file_operations ctrl_tx_fops = {
+static const struct file_operations ctrl_dma_fops = {
 		.owner = THIS_MODULE,
 		.open = char_open,
-		//.release = char_close,
+		.release = char_close,
 		.read = char_read_dev_buf,
-		.mmap = tx_char_dev_mmap
+		.mmap = dma_char_dev_mmap
 };
 
 // 64 bytes header
@@ -294,15 +294,15 @@ struct DmaBufferHeader
 
 
 #define MQNIC_TX_BUF_SIZE 1024*1024
-struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num)
+struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name, int num)
 {
 	struct mq_char_dev *char_dev;
 	int rv;
 	dev_t dev;
-	u8 *tx_data;
+	u8 *dma_buf;
 	struct DmaBufferHeader *dma_buf_header;
 
-	pr_info("create_mq_char_tx %s", name);
+	pr_info("create_mq_char_dma %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -319,11 +319,11 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	char_dev->dev_buf = dmam_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
 	if (!char_dev->dev_buf)
 	{
-		pr_err("create_mq_char_tx: dma_alloc_coherent failed.\n");
+		pr_err("create_mq_char_dma: dma_alloc_coherent failed.\n");
 		goto free_cdev;
 	}
-	tx_data = char_dev->dev_buf;
-	dma_buf_header = (struct DmaBufferHeader *)tx_data;
+	dma_buf = char_dev->dev_buf;
+	dma_buf_header = (struct DmaBufferHeader *)dma_buf;
 	dma_buf_header->header_size = 4096;
 	dma_buf_header->dma_buf_handle = char_dev->dma_handle;
 	dma_buf_header->buffer_size = char_dev->dev_buf_size;
@@ -333,7 +333,7 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 
 	if (rv)
 	{
-		pr_err("create_mq_char_tx: kobject_set_name faied.\n");
+		pr_err("create_mq_char_dma: kobject_set_name faied.\n");
 		goto free_cdev;
 	}
 
@@ -342,12 +342,12 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
 		{
-			pr_err("create_mq_char_tx: unable to allocate cdev region %d.\n", rv);
+			pr_err("create_mq_char_dma: unable to allocate cdev region %d.\n", rv);
 			goto free_cdev;
 		}
 	}
 
-	cdev_init(&char_dev->cdev, &ctrl_tx_fops);
+	cdev_init(&char_dev->cdev, &ctrl_dma_fops);
 
 	char_dev->major = MAJOR(dev);
 
@@ -356,19 +356,19 @@ struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name,
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
-		pr_err("create_mq_char_tx: cdev_add %s failed %d\n", name, rv);
+		pr_err("create_mq_char_dma: cdev_add %s failed %d\n", name, rv);
 		goto unregister_region;
 	}
 
 	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
 
 	if (!char_dev->sys_device) {
-		pr_err("create_mq_char_tx: device_create(%s) failed\n", name);
+		pr_err("create_mq_char_dma: device_create(%s) failed\n", name);
 		goto unregister_region;
 	}
 
 
-	pr_info("create_mq_char_tx %s succeeded", name);
+	pr_info("create_mq_char_dma %s succeeded", name);
 
 	return char_dev;
 
@@ -560,11 +560,11 @@ void mq_free_char_dev(struct mq_char_dev *char_dev)
 	kfree(char_dev);
 }
 
-void mq_free_tx_char_dev(struct mq_char_dev *char_dev)
+void mq_free_dma_char_dev(struct mq_char_dev *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mq_free_tx_char_dev %u\n", char_dev->cdevno);
+	pr_info("mq_free_dma_char_dev %u\n", char_dev->cdevno);
 	//dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 	char_dev->dev_buf = 0;
 	destroy_mq_char_device(char_dev);

@@ -108,6 +108,8 @@ struct mqnic_adev {
 };
 #endif
 
+
+#define MAX_CHAR_DMA__DEV_COUNT 8
 struct mqnic_dev {
 	struct device *dev;
 #ifdef CONFIG_PCI
@@ -119,7 +121,7 @@ struct mqnic_dev {
 	struct mq_char_dev *char_app_dev;
 	struct mq_char_dev *char_ram_dev;
 	struct mq_char_dev *char_log_dev;
-	struct mq_char_dev *char_tx_dev;
+	struct mq_char_dev *char_dma_dev[MAX_CHAR_DMA__DEV_COUNT];
 
 
 	resource_size_t hw_regs_size;
@@ -677,9 +679,9 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 //
 struct mq_char_dev *create_mq_char_device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
 struct mq_char_dev *create_mq_char_log_device(const char* name, int num);
-struct mq_char_dev *create_mq_char_tx(struct mqnic_dev *mqnic, const char* name, int num);
+struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name, int num);
 void mq_free_char_dev(struct mq_char_dev *char_dev);
-void mq_free_tx_char_dev(struct mq_char_dev *char_dev);
+void mq_free_dma_char_dev(struct mq_char_dev *char_dev);
 void mq_free_log_char_dev(struct mq_char_dev *char_dev);
 int mq_cdev_init(void);
 void mqnic_cdev_cleanup(void);
