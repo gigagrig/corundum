@@ -740,11 +740,11 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
 
 	mqnic->char_dma_dev[0] = create_mq_char_dma(mqnic, "mqnic_dma0", 2);
-	if (mqnic->char_dma_dev[0])
+	if (!mqnic->char_dma_dev[0])
 		goto fail_dma_char_dev;
 
 	mqnic->char_dma_dev[1] = create_mq_char_dma(mqnic, "mqnic_dma1", 3);
-	if (mqnic->char_dma_dev[1])
+	if (!mqnic->char_dma_dev[1])
 		goto fail_dma_char_dev;
 
 	// Common init
