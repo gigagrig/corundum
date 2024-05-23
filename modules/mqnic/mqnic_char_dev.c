@@ -269,7 +269,6 @@ int dma_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	pr_info("dma_char_dev_mmap\n");
 	char_dev = (struct mq_char_dev *)file->private_data;
 	vma->vm_private_data = char_dev;
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, vma->vm_end - vma->vm_start);
 	return 0;
 }
