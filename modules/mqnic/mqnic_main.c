@@ -564,6 +564,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct pci_dev *bridge = pci_upstream_bridge(pdev);
+	char mqnic_dma_dev_name[32];
 
 	dev_info(dev, DRIVER_NAME " PCI probe");
 	dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
@@ -739,9 +740,17 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
 
-	mqnic->char_dma_dev[0] = create_mq_char_dma(mqnic, "mqnic_dma0", 2);
-	if (!mqnic->char_dma_dev[0])
-		goto fail_dma_char_dev;
+	memcpy(mqnic_dma_dev_name, "mqnic_dma0", 10);
+	for (k = 0; k < 4; ++k)
+	{
+		mqnic_dma_dev_name[10] = k - '0';
+		mqnic_dma_dev_name[11] = 0;
+		mqnic->char_dma_dev[k] = create_mq_char_dma(mqnic, mqnic_dma_dev_name, 2);
+		if (!mqnic->char_dma_dev[k])
+			goto fail_dma_char_dev;
+	}
+
+
 
 	mqnic->char_dma_dev[1] = create_mq_char_dma(mqnic, "mqnic_dma1", 3);
 	if (!mqnic->char_dma_dev[1])
