@@ -745,16 +745,10 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	{
 		mqnic_dma_dev_name[9] = k + '0';
 		mqnic_dma_dev_name[10] = 0;
-		mqnic->char_dma_dev[k] = create_mq_char_dma(mqnic, mqnic_dma_dev_name, 2);
+		mqnic->char_dma_dev[k] = create_mq_char_dma(mqnic, mqnic_dma_dev_name, 2 + k);
 		if (!mqnic->char_dma_dev[k])
 			goto fail_dma_char_dev;
 	}
-
-
-
-	mqnic->char_dma_dev[1] = create_mq_char_dma(mqnic, "mqnic_dma1", 3);
-	if (!mqnic->char_dma_dev[1])
-		goto fail_dma_char_dev;
 
 	// Common init
 	ret = mqnic_common_probe(mqnic);
