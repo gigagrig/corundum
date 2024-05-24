@@ -740,11 +740,11 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
 
-	memcpy(mqnic_dma_dev_name, "mqnic_dma0", 10);
+	memcpy(mqnic_dma_dev_name, "mqnic_dma", 10);
 	for (k = 0; k < 4; ++k)
 	{
-		mqnic_dma_dev_name[10] = k - '0';
-		mqnic_dma_dev_name[11] = 0;
+		mqnic_dma_dev_name[9] = k + '0';
+		mqnic_dma_dev_name[10] = 0;
 		mqnic->char_dma_dev[k] = create_mq_char_dma(mqnic, mqnic_dma_dev_name, 2);
 		if (!mqnic->char_dma_dev[k])
 			goto fail_dma_char_dev;
