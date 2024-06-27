@@ -311,7 +311,7 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 	int budget = napi_budget;
 	u32 len;
 
-	printk(KERN_INFO "mqnic_process_rx_cq\n");
+	//printk(KERN_INFO "mqnic_process_rx_cq\n");
 
 	if (unlikely(!priv || !priv->port_up))
 		return done;
@@ -388,7 +388,7 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 
 		rx_ring->packets++;
 		rx_ring->bytes += le16_to_cpu(cpl->len);
-		printk(KERN_INFO "mqnic_process_rx_cq  packets = %llu, new_packet_len = %i\n", rx_ring->packets, le16_to_cpu(cpl->len));
+		//printk(KERN_INFO "mqnic_process_rx_cq  packets = %llu, new_packet_len = %i\n", rx_ring->packets, le16_to_cpu(cpl->len));
 
 
 	rx_drop:
@@ -437,7 +437,7 @@ int mqnic_poll_rx_cq(struct napi_struct *napi, int budget)
 
 	done = mqnic_process_rx_cq(cq, budget);
 
-	printk(KERN_INFO "mqnic_poll_rx_cq done = %i\n", done);
+	//printk(KERN_INFO "mqnic_poll_rx_cq done = %i\n", done);
 
 	if (done == budget)
 		return done;

@@ -19,7 +19,7 @@ int char_open(struct inode *inode, struct file *file)
 	}
 
 	pr_info("mqnic_char_device: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
-	pr_info("mqnic_char_device: buf: 0x%llx size: 0x%lx", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
+	pr_info("mqnic_char_device: buf: 0x%llx size: 0x%x", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
 
 	/* create a reference to our char device in the opened file */
 	file->private_data = char_dev;
@@ -273,12 +273,19 @@ int dma_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+static long mq_char_dma_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct mq_char_dev *dev = (struct mq_char_dev*)file->private_data;
+	return copy_to_user((void __user *)arg, &(dev->dev_buf_size), sizeof(dev->dev_buf_size)) ? -EFAULT : 0;
+}
+
 static const struct file_operations ctrl_dma_fops = {
 		.owner = THIS_MODULE,
 		.open = char_open,
 		.release = char_close,
 		.read = char_read_dev_buf,
-		.mmap = dma_char_dev_mmap
+		.mmap = dma_char_dev_mmap,
+		.compat_ioctl = mq_char_dma_ioctl
 };
 
 // 64 bytes header
@@ -290,9 +297,8 @@ struct DmaBufferHeader
 	char name[24];
 };
 
+#define MQNIC_DMA_BUF_SIZE 4*1024*1024
 
-
-#define MQNIC_TX_BUF_SIZE 1024*1024
 struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name, int num)
 {
 	struct mq_char_dev *char_dev;
@@ -314,8 +320,8 @@ struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name
 	char_dev->bar_size = 0;
 
 	char_dev->dev_buf = 0;
-	char_dev->dev_buf_size = MQNIC_TX_BUF_SIZE;
-	char_dev->dev_buf = dmam_alloc_coherent(mqnic->dev, MQNIC_TX_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
+	char_dev->dev_buf_size = MQNIC_DMA_BUF_SIZE;
+	char_dev->dev_buf = dmam_alloc_coherent(mqnic->dev, MQNIC_DMA_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
 	if (!char_dev->dev_buf)
 	{
 		pr_err("create_mq_char_dma: dma_alloc_coherent failed.\n");

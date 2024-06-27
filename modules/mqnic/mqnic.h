@@ -482,7 +482,7 @@ struct mq_char_dev {
 	int major;
 	dev_t cdevno;
 	void *dev_buf;
-	size_t dev_buf_size;
+	u32 dev_buf_size;
 	dma_addr_t dma_handle;
 	struct cdev cdev;
 };
