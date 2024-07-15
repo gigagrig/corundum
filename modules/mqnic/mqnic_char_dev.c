@@ -285,7 +285,7 @@ static const struct file_operations ctrl_dma_fops = {
 		.release = CloseChar,
 		.read = CharReadDevBuf,
 		.mmap = DmaCharMmap,
-		.compat_ioctl = CharIoctl
+		.unlocked_ioctl = CharIoctl
 };
 
 // 64 bytes header
