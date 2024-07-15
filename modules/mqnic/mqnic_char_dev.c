@@ -5,21 +5,21 @@ static struct class *g_mqnic_class;
 #define MQ_CHAR_DEV_COUNT 16
 
 
-int char_open(struct inode *inode, struct file *file)
+int OpenChar(struct inode *inode, struct file *file)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 
-	pr_info("mqnic_char_device: char_open\n");
+	pr_info("MqnicCharDevice: char_open\n");
 
 	/* pointer to containing structure of the character device inode */
-	char_dev = container_of(inode->i_cdev, struct mq_char_dev, cdev);
+	char_dev = container_of(inode->i_cdev, struct MqnicCharDevice, cdev);
 	if (!char_dev) {
 		pr_err("char_dev NULL\n");
 		return -EINVAL;
 	}
 
-	pr_info("mqnic_char_device: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
-	pr_info("mqnic_char_device: buf: 0x%llx size: 0x%x", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
+	pr_info("MqnicCharDevice: bar: 0x%llx size: 0x%llx", (uint64_t)char_dev->bar, char_dev->bar_size);
+	pr_info("MqnicCharDevice: buf: 0x%llx size: 0x%x", (uint64_t)char_dev->dev_buf, char_dev->dev_buf_size);
 
 	/* create a reference to our char device in the opened file */
 	file->private_data = char_dev;
@@ -31,44 +31,44 @@ int char_open(struct inode *inode, struct file *file)
 /*
  * Called when the device goes from used to unused.
  */
-int char_close(struct inode *inode, struct file *file)
+int CloseChar(struct inode *inode, struct file *file)
 {
-	pr_info("mqnic_char_device: char_close\n");
+	pr_info("CloseChar: char_close\n");
 
 	return 0;
 }
 
-static ssize_t char_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
+static ssize_t CharWrite(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	u32 desc_data;
 	size_t buf_offset;
 	int rc;
 	int copy_err;
 	u8 __iomem *base_addr;
 
-	pr_info("mqnic_char_device: char_write %lli:%li", *pos, count);
+	pr_info("MqnicCharDevice: char_write %lli:%li", *pos, count);
 
 	if (count & 3) {
-		pr_err("mqnic_char_device: Buffer size must be a multiple of 4 bytes\n");
+		pr_err("MqnicCharDevice: Buffer size must be a multiple of 4 bytes\n");
 		return -EINVAL;
 	}
 
 	if (!buf) {
-		pr_err("mqnic_char_device: Caught NULL pointer\n");
+		pr_err("MqnicCharDevice: Caught NULL pointer\n");
 		return -EINVAL;
 	}
 
 	if (*pos & 3) {
-		pr_err("mqnic_char_device: address must be a multiple of 4 bytes\n");
+		pr_err("MqnicCharDevice: address must be a multiple of 4 bytes\n");
 		return -EINVAL;
 	}
 
-	char_dev = (struct mq_char_dev *)file->private_data;
+	char_dev = (struct MqnicCharDevice *)file->private_data;
 
 	if (*pos + sizeof(u32) * count > char_dev->bar_size)
 	{
-		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
+		pr_err("MqnicCharDevice: char_read requested memory out of bar\n");
 		return -EFAULT;
 	}
 
@@ -79,13 +79,13 @@ static ssize_t char_write(struct file *file, const char __user *buf, size_t coun
 		if (!copy_err)
 		{
 			pr_info("char_write 0x%x to 0x%llx", desc_data, *pos);
-			mqnic_write_register(desc_data, base_addr + buf_offset);
+			MqnicWriteRegister(desc_data, base_addr + buf_offset);
 			buf_offset += sizeof(u32);
 			rc = buf_offset;
 		}
 		else
 		{
-			pr_err("mqnic_char_device: Error reading data from userspace buffer\n");
+			pr_err("MqnicCharDevice: Error reading data from userspace buffer\n");
 			rc = -EINVAL;
 			break;
 		}
@@ -94,40 +94,40 @@ static ssize_t char_write(struct file *file, const char __user *buf, size_t coun
 	return rc;
 }
 
-static ssize_t char_read(struct file *file, char __user *buf,
-                                size_t count, loff_t *pos)
+static ssize_t CharReadBar(struct file *file, char __user *buf,
+                           size_t count, loff_t *pos)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	u32 desc_data;
 	size_t buf_offset;
 	int rc;
 	int copy_err;
 	u8 __iomem *base_addr;
 
-	pr_info("mqnic_char_device: char_read %lli:%li", *pos, count);
+	pr_info("MqnicCharDevice: char_read %lli:%li", *pos, count);
 
 	if (count & 3)
 	{
-		pr_err("mqnic_char_device: Buffer size must be a multiple of 4 bytes\n");
+		pr_err("MqnicCharDevice: Buffer size must be a multiple of 4 bytes\n");
 		return -EINVAL;
 	}
 
 	if (!buf)
 	{
-		pr_err("mqnic_char_device: Caught NULL pointer\n");
+		pr_err("MqnicCharDevice: Caught NULL pointer\n");
 		return -EINVAL;
 	}
 
 	if (*pos & 3) {
-		pr_err("mqnic_char_device: address must be a multiple of 4 bytes\n");
+		pr_err("MqnicCharDevice: address must be a multiple of 4 bytes\n");
 		return -EINVAL;
 	}
 
-	char_dev = (struct mq_char_dev *)file->private_data;
+	char_dev = (struct MqnicCharDevice *)file->private_data;
 
 	if (*pos + sizeof(u32) * count > char_dev->bar_size)
 	{
-		pr_err("mqnic_char_device: char_read requested memory out of bar\n");
+		pr_err("MqnicCharDevice: char_read requested memory out of bar\n");
 		return -EFAULT;
 	}
 
@@ -144,7 +144,7 @@ static ssize_t char_read(struct file *file, char __user *buf,
 		}
 		else
 		{
-			pr_err("mqnic_char_device: Error writing data to userspace buffer\n");
+			pr_err("MqnicCharDevice: Error writing data to userspace buffer\n");
 			rc = -EINVAL;
 			break;
 		}
@@ -155,24 +155,24 @@ static ssize_t char_read(struct file *file, char __user *buf,
 	return rc;
 }
 
-static ssize_t char_read_dev_buf(struct file *file, char __user *buf,
-                                 size_t count, loff_t *pos)
+static ssize_t CharReadDevBuf(struct file *file, char __user *buf,
+                              size_t count, loff_t *pos)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	int rc;
 	int copy_err;
 	char *base_addr;
 	char *dev_buf_end;
 
-	pr_info("char_read_dev_buf: %lli:%li\n", *pos, count);
+	pr_info("CharReadDevBuf: %lli:%li\n", *pos, count);
 
 	if (!buf)
 	{
-		pr_err("char_read_dev_buf: Caught NULL pointer\n");
+		pr_err("CharReadDevBuf: Caught NULL pointer\n");
 		return -EINVAL;
 	}
 
-	char_dev = (struct mq_char_dev *)file->private_data;
+	char_dev = (struct MqnicCharDevice *)file->private_data;
 	dev_buf_end = (char*)char_dev->dev_buf + char_dev->dev_buf_size;
 	base_addr = (char*)char_dev->dev_buf +  *pos;
 	count = min_t(size_t, count, dev_buf_end - base_addr);
@@ -187,24 +187,24 @@ static ssize_t char_read_dev_buf(struct file *file, char __user *buf,
 		}
 		else
 		{
-			pr_err("char_read_dev_buf: Error writing data to userspace buffer\n");
+			pr_err("CharReadDevBuf: Error writing data to userspace buffer\n");
 			rc = -EINVAL;
 		}
 	}
 	return rc;
 }
 
-vm_fault_t vm_mmap_fault(struct vm_fault *vmf)
+vm_fault_t VmMmapFault(struct vm_fault *vmf)
 {
 	struct page *page;
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 
-	char_dev = (struct mq_char_dev *)vmf->vma->vm_private_data;
+	char_dev = (struct MqnicCharDevice *)vmf->vma->vm_private_data;
 	if (!char_dev) {
-		pr_err("vm_mmap_fault: no device\n");
+		pr_err("VmMmapFault: no device\n");
 		return -ENODEV;
 	}
-	pr_info("vm_mmap_fault\n");
+	pr_info("VmMmapFault\n");
 	page = vmalloc_to_page(char_dev->dev_buf + (vmf->pgoff << PAGE_SHIFT));
 	get_page(page);
 	vmf->page = page;
@@ -212,102 +212,104 @@ vm_fault_t vm_mmap_fault(struct vm_fault *vmf)
 	return 0;
 }
 
-void vm_mmap_close(struct vm_area_struct * area)
+void VmMmapClose(struct vm_area_struct * area)
 {
-	pr_info("vm_mmap_close\n");
+	pr_info("VmMmapClose\n");
 }
-void vm_mmap_open(struct vm_area_struct * area)
+void VmMmapOpen(struct vm_area_struct * area)
 {
-	pr_info("vm_mmap_open\n");
+	pr_info("VmMmapOpen\n");
 }
 
 
 static struct vm_operations_struct vm_ops =
 {
-	.close = vm_mmap_close,
-	.fault = vm_mmap_fault,
-	.open = vm_mmap_open,
+	.close = VmMmapClose,
+	.fault = VmMmapFault,
+	.open = VmMmapOpen,
 };
 
 
-int char_dev_mmap(struct file *file, struct vm_area_struct *vma)
+int LogCharMmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 
 	pr_info("mqnic_char_dev: char_dev_mmap\n");
 
-	char_dev = (struct mq_char_dev *)file->private_data;
+	char_dev = (struct MqnicCharDevice *)file->private_data;
 	vma->vm_flags |=  VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_private_data = char_dev;
 	vma->vm_ops = &vm_ops;
-	vm_mmap_open(vma);
+	VmMmapOpen(vma);
 	return 0;
 }
 
 
 static const struct file_operations ctrl_fops = {
 		.owner = THIS_MODULE,
-		.open = char_open,
-		.release = char_close,
-		.read = char_read,
-		.write = char_write,
+		.open = OpenChar,
+		.release = CloseChar,
+		.read = CharReadBar,
+		.write = CharWrite,
 };
 
 static const struct file_operations ctrl_log_fops = {
 		.owner = THIS_MODULE,
-		.open = char_open,
-		.release = char_close,
-		.read = char_read_dev_buf,
-		.mmap = char_dev_mmap
+		.open = OpenChar,
+		.release = CloseChar,
+		.read = CharReadDevBuf,
+		.mmap = LogCharMmap
 };
 
 
-int dma_char_dev_mmap(struct file *file, struct vm_area_struct *vma)
+int DmaCharMmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	int ret;
-	pr_info("dma_char_dev_mmap\n");
-	char_dev = (struct mq_char_dev *)file->private_data;
+	pr_info("DmaCharMmap\n");
+	char_dev = (struct MqnicCharDevice *)file->private_data;
 	vma->vm_private_data = char_dev;
 	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, vma->vm_end - vma->vm_start);
 	return 0;
 }
 
-static long mq_char_dma_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long CharIoctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct mq_char_dev *dev = (struct mq_char_dev*)file->private_data;
+	struct MqnicCharDevice *dev = (struct MqnicCharDevice*)file->private_data;
 	return copy_to_user((void __user *)arg, &(dev->dev_buf_size), sizeof(dev->dev_buf_size)) ? -EFAULT : 0;
 }
 
 static const struct file_operations ctrl_dma_fops = {
 		.owner = THIS_MODULE,
-		.open = char_open,
-		.release = char_close,
-		.read = char_read_dev_buf,
-		.mmap = dma_char_dev_mmap,
-		.compat_ioctl = mq_char_dma_ioctl
+		.open = OpenChar,
+		.release = CloseChar,
+		.read = CharReadDevBuf,
+		.mmap = DmaCharMmap,
+		.compat_ioctl = CharIoctl
 };
 
 // 64 bytes header
+#define DMA_BUF_HEADER_SIZE 4096 //descriptors queue must be aligned on page size
+#define DMA_BUF_NAME_SIZE 24
 struct DmaBufferHeader
 {
 	u32 header_size;
 	u32 buffer_size;
 	u64 dma_buf_handle;
-	char name[24];
+	char name[DMA_BUF_NAME_SIZE];
 };
 
 #define MQNIC_DMA_BUF_SIZE 4*1024*1024
 
-struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name, int num)
+struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name, int num)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	int rv;
 	dev_t dev;
 	u8 *dma_buf;
 	struct DmaBufferHeader *dma_buf_header;
 
-	pr_info("create_mq_char_dma %s", name);
+	pr_info("CreateCharDMADevice %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -324,21 +326,21 @@ struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name
 	char_dev->dev_buf = dmam_alloc_coherent(mqnic->dev, MQNIC_DMA_BUF_SIZE, &char_dev->dma_handle, GFP_KERNEL);
 	if (!char_dev->dev_buf)
 	{
-		pr_err("create_mq_char_dma: dma_alloc_coherent failed.\n");
+		pr_err("CreateCharDMADevice: dma_alloc_coherent failed.\n");
 		goto free_cdev;
 	}
 	dma_buf = char_dev->dev_buf;
 	dma_buf_header = (struct DmaBufferHeader *)dma_buf;
-	dma_buf_header->header_size = 4096;
+	dma_buf_header->header_size = DMA_BUF_HEADER_SIZE;
 	dma_buf_header->dma_buf_handle = char_dev->dma_handle;
 	dma_buf_header->buffer_size = char_dev->dev_buf_size;
-	strncpy(dma_buf_header->name, name, 24);
+	strncpy(dma_buf_header->name, name, DMA_BUF_NAME_SIZE);
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
 	if (rv)
 	{
-		pr_err("create_mq_char_dma: kobject_set_name faied.\n");
+		pr_err("CreateCharDMADevice: kobject_set_name faied.\n");
 		goto free_cdev;
 	}
 
@@ -347,7 +349,7 @@ struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
 		{
-			pr_err("create_mq_char_dma: unable to allocate cdev region %d.\n", rv);
+			pr_err("CreateCharDMADevice: unable to allocate cdev region %d.\n", rv);
 			goto free_cdev;
 		}
 	}
@@ -361,19 +363,19 @@ struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
-		pr_err("create_mq_char_dma: cdev_add %s failed %d\n", name, rv);
+		pr_err("CreateCharDMADevice: cdev_add %s failed %d\n", name, rv);
 		goto unregister_region;
 	}
 
 	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
 
 	if (!char_dev->sys_device) {
-		pr_err("create_mq_char_dma: device_create(%s) failed\n", name);
+		pr_err("CreateCharDMADevice: device_create(%s) failed\n", name);
 		goto unregister_region;
 	}
 
 
-	pr_info("create_mq_char_dma %s succeeded", name);
+	pr_info("CreateCharDMADevice %s succeeded", name);
 
 	return char_dev;
 
@@ -391,13 +393,13 @@ free_cdev:
 }
 
 #define MQNIC_LOG_BUF_SIZE 16*1024*1024
-struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
+struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	int rv;
 	dev_t dev;
 
-	pr_info("create_mq_char_log_device: create_mq_char_device %s", name);
+	pr_info("CreateCharLoggerDevice: %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -417,7 +419,7 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 
 	if (rv)
 	{
-		pr_err("create_mq_char_log_device: kobject_set_name faied.\n");
+		pr_err("CreateCharLoggerDevice: kobject_set_name faied.\n");
 		goto free_cdev;
 	}
 
@@ -426,7 +428,7 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
 		{
-			pr_err("create_mq_char_device: unable to allocate cdev region %d.\n", rv);
+			pr_err("CreateCharBar0Device: unable to allocate cdev region %d.\n", rv);
 			goto free_cdev;
 		}
 	}
@@ -440,19 +442,19 @@ struct mq_char_dev *create_mq_char_log_device(const char* name, int num)
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
-		pr_err("create_mq_char_device: cdev_add %s failed %d\n", name, rv);
+		pr_err("CreateCharBar0Device: cdev_add %s failed %d\n", name, rv);
 		goto unregister_region;
 	}
 
 	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
 
 	if (!char_dev->sys_device) {
-		pr_err("create_mq_char_log_device: device_create(%s) failed\n", name);
+		pr_err("CreateCharLoggerDevice: device_create(%s) failed\n", name);
 		goto unregister_region;
 	}
 
 
-	pr_info("create_mq_char_log_device %s succeeded", name);
+	pr_info("CreateCharLoggerDevice %s succeeded", name);
 
 	return char_dev;
 
@@ -468,14 +470,14 @@ free_cdev:
 	return NULL;
 }
 
-struct mq_char_dev *create_mq_char_device(const char* name, int num,
-		u8 __iomem *hw_addr, resource_size_t hw_regs_size)
+struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num,
+                                             u8 __iomem *hw_addr, resource_size_t hw_regs_size)
 {
-	struct mq_char_dev *char_dev;
+	struct MqnicCharDevice *char_dev;
 	int rv;
 	dev_t dev;
 
-	pr_info("mqnic_char_device: create_mq_char_device %s", name);
+	pr_info("MqnicCharDevice: CreateCharBar0Device %s", name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -492,7 +494,7 @@ struct mq_char_dev *create_mq_char_device(const char* name, int num,
 
 	if (rv)
 	{
-		pr_err("create_mq_char_device: kobject_set_name faied.\n");
+		pr_err("CreateCharBar0Device: kobject_set_name faied.\n");
 		goto free_cdev;
 	}
 
@@ -501,7 +503,7 @@ struct mq_char_dev *create_mq_char_device(const char* name, int num,
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
 		{
-			pr_err("create_mq_char_device: unable to allocate cdev region %d.\n", rv);
+			pr_err("CreateCharBar0Device: unable to allocate cdev region %d.\n", rv);
 			goto free_cdev;
 		}
 	}
@@ -515,19 +517,18 @@ struct mq_char_dev *create_mq_char_device(const char* name, int num,
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
 	if (rv < 0) {
-		pr_err("create_mq_char_device: cdev_add %s failed %d\n", name, rv);
+		pr_err("CreateCharBar0Device: cdev_add %s failed %d\n", name, rv);
 		goto unregister_region;
 	}
 
 	char_dev->sys_device = device_create(g_mqnic_class, NULL, char_dev->cdevno, NULL, name);
 
 	if (!char_dev->sys_device) {
-		pr_err("create_mq_char_device: device_create(%s) failed\n", name);
+		pr_err("CreateCharBar0Device: device_create(%s) failed\n", name);
 		goto unregister_region;
 	}
 
-
-	pr_info("mqnic_char_device: create_mq_char_device %s succeeded", name);
+	pr_info("MqnicCharDevice: CreateCharBar0Device %s succeeded", name);
 
 	return char_dev;
 
@@ -540,12 +541,12 @@ free_cdev:
 }
 
 
-void destroy_mq_char_device(struct mq_char_dev *char_dev)
+void DestroyCharDevice(struct MqnicCharDevice *char_dev)
 {
-	pr_info("mqnic_char_device: destroy_mq_char_device");
+	pr_info("MqnicCharDevice: DestroyCharDevice");
 	if (!char_dev)
 	{
-		pr_err("destroy_mq_char_device: char_dev is empty");
+		pr_err("DestroyCharDevice: char_dev is empty");
 		return;
 	}
 
@@ -556,61 +557,58 @@ void destroy_mq_char_device(struct mq_char_dev *char_dev)
 	unregister_chrdev_region(MKDEV(char_dev->major, 0), MQ_CHAR_DEV_COUNT);
 }
 
-void mq_free_char_dev(struct mq_char_dev *char_dev)
+void FreeBarCharDevice(struct MqnicCharDevice *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mqnic_char_device %u\n", char_dev->cdevno);
-	destroy_mq_char_device(char_dev);
+	pr_info("MqnicCharDevice %u\n", char_dev->cdevno);
+	DestroyCharDevice(char_dev);
 	kfree(char_dev);
 }
 
-void mq_free_dma_char_dev(struct mq_char_dev *char_dev)
+void FreeDmaCharDevice(struct MqnicCharDevice *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mq_free_dma_char_dev %u\n", char_dev->cdevno);
+	pr_info("FreeDmaCharDevice %u\n", char_dev->cdevno);
 	//dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 	char_dev->dev_buf = 0;
-	destroy_mq_char_device(char_dev);
+	DestroyCharDevice(char_dev);
 	kfree(char_dev);
 }
 
-void mq_free_log_char_dev(struct mq_char_dev *char_dev)
+void FreeLogCharDevice(struct MqnicCharDevice *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("mq_free_log_char_dev %u\n", char_dev->cdevno);
+	pr_info("FreeLogCharDevice %u\n", char_dev->cdevno);
 	if (char_dev->dev_buf)
 	{
 		vfree(char_dev->dev_buf);
 		char_dev->dev_buf = 0;
 	}
-	destroy_mq_char_device(char_dev);
+	DestroyCharDevice(char_dev);
 	kfree(char_dev);
 }
 
 
-int mq_cdev_init(void)
+int CharDevicesInit(void)
 {
 	g_mqnic_class = class_create(THIS_MODULE, MQ_NODE_NAME);
 	if (IS_ERR(g_mqnic_class)) {
-		pr_err("mq_cdev_init: failed to create class %s", MQ_NODE_NAME);
+		pr_err("CharDevicesInit: failed to create class %s", MQ_NODE_NAME);
 		return -EINVAL;
 	}
 
-	pr_info("mqnic_char_device: mq_cdev_init finished");
+	pr_info("MqnicCharDevice: CharDevicesInit finished");
 
 	return 0;
 }
 
-void mqnic_cdev_cleanup(void)
+void CharDevicesCleanup(void)
 {
-/*	if (cdev_cache)
-		kmem_cache_destroy(cdev_cache);*/
-
 	if (g_mqnic_class)
 		class_destroy(g_mqnic_class);
 
-	pr_info("mqnic_char_device: mqnic_cdev_cleanup finished");
+	pr_info("MqnicCharDevice: mqnic_cdev_cleanup finished");
 }

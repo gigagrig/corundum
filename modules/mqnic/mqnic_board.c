@@ -837,15 +837,15 @@ static struct mqnic_board_ops generic_board_ops = {
 
 static u32 mqnic_alveo_bmc_reg_read(struct mqnic_dev *mqnic, struct mqnic_reg_block *rb, u32 reg)
 {
-	mqnic_write_register(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
+	MqnicWriteRegister(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
 	ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA); // dummy read
 	return ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
 }
 
 static void mqnic_alveo_bmc_reg_write(struct mqnic_dev *mqnic, struct mqnic_reg_block *rb, u32 reg, u32 val)
 {
-	mqnic_write_register(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
-	mqnic_write_register(val, rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
+	MqnicWriteRegister(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
+	MqnicWriteRegister(val, rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
 	ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA); // dummy read
 }
 
@@ -1019,8 +1019,8 @@ static int mqnic_gecko_bmc_write(struct mqnic_dev *mqnic, struct mqnic_reg_block
 	if (ret == -1)
 		return ret;
 
-	mqnic_write_register(data, rb->regs + MQNIC_RB_GECKO_BMC_REG_DATA);
-	mqnic_write_register(cmd << 16, rb->regs + MQNIC_RB_GECKO_BMC_REG_CMD);
+	MqnicWriteRegister(data, rb->regs + MQNIC_RB_GECKO_BMC_REG_DATA);
+	MqnicWriteRegister(cmd << 16, rb->regs + MQNIC_RB_GECKO_BMC_REG_CMD);
 
 	return 0;
 }

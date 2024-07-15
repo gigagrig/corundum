@@ -65,27 +65,27 @@ int mqnic_open_cq(struct mqnic_cq *cq, struct mqnic_eq *eq, int size)
 
 	memset(cq->buf, 1, cq->buf_size);
 
-	mqnic_log("mqnic_open_cq 0x%x\n", (u32)(u64)(cq->hw_addr - g_base_reg_addr));
+	MqnicLog("mqnic_open_cq 0x%x\n", (u32)(u64)(cq->hw_addr - g_base_reg_addr));
 	// deactivate queue
-	mqnic_write_register(MQNIC_CQ_CMD_SET_ENABLE | 0, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_ENABLE | 0, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 	// set base address
-	mqnic_write_register((cq->buf_dma_addr & 0xfffff000),
-			cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 0);
-	mqnic_write_register(cq->buf_dma_addr >> 32,
-			cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 4);
+	MqnicWriteRegister((cq->buf_dma_addr & 0xfffff000),
+	                   cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 0);
+	MqnicWriteRegister(cq->buf_dma_addr >> 32,
+	                   cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 4);
 	// set size
-	mqnic_write_register(MQNIC_CQ_CMD_SET_SIZE | ilog2(cq->size),
-			cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_SIZE | ilog2(cq->size),
+	                   cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 	// set EQN
-	mqnic_write_register(MQNIC_CQ_CMD_SET_EQN | cq->eq->eqn,
-			cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_EQN | cq->eq->eqn,
+	                   cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 	// set pointers
-	mqnic_write_register(MQNIC_CQ_CMD_SET_PROD_PTR | (cq->prod_ptr & MQNIC_CQ_PTR_MASK),
-			cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
-	mqnic_write_register(MQNIC_CQ_CMD_SET_CONS_PTR | (cq->cons_ptr & MQNIC_CQ_PTR_MASK),
-			cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_PROD_PTR | (cq->prod_ptr & MQNIC_CQ_PTR_MASK),
+	                   cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_CONS_PTR | (cq->cons_ptr & MQNIC_CQ_PTR_MASK),
+	                   cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 	// activate queue
-	mqnic_write_register(MQNIC_CQ_CMD_SET_ENABLE | 1, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_ENABLE | 1, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 
 	cq->enabled = 1;
 
@@ -100,7 +100,7 @@ void mqnic_close_cq(struct mqnic_cq *cq)
 {
 	if (cq->hw_addr) {
 		// deactivate queue
-		mqnic_write_register(MQNIC_CQ_CMD_SET_ENABLE | 0, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+		MqnicWriteRegister(MQNIC_CQ_CMD_SET_ENABLE | 0, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 	}
 
 	if (cq->eq) {
@@ -129,8 +129,8 @@ void mqnic_cq_read_prod_ptr(struct mqnic_cq *cq)
 
 void mqnic_cq_write_cons_ptr(struct mqnic_cq *cq)
 {
-	mqnic_write_register(MQNIC_CQ_CMD_SET_CONS_PTR | (cq->cons_ptr & MQNIC_CQ_PTR_MASK),
-			cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_CONS_PTR | (cq->cons_ptr & MQNIC_CQ_PTR_MASK),
+	                   cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 }
 
 void mqnic_arm_cq(struct mqnic_cq *cq)
@@ -138,5 +138,5 @@ void mqnic_arm_cq(struct mqnic_cq *cq)
 	if (!cq->enabled)
 		return;
 
-	mqnic_write_register(MQNIC_CQ_CMD_SET_ARM | 1, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_CQ_CMD_SET_ARM | 1, cq->hw_addr + MQNIC_CQ_CTRL_STATUS_REG);
 }

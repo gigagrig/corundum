@@ -102,7 +102,7 @@ EXPORT_SYMBOL(mqnic_port_get_tx_ctrl);
 
 void mqnic_port_set_tx_ctrl(struct mqnic_port *port, u32 val)
 {
-	mqnic_write_register(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_TX_CTRL);
+	MqnicWriteRegister(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_TX_CTRL);
 }
 EXPORT_SYMBOL(mqnic_port_set_tx_ctrl);
 
@@ -114,7 +114,7 @@ EXPORT_SYMBOL(mqnic_port_get_rx_ctrl);
 
 void mqnic_port_set_rx_ctrl(struct mqnic_port *port, u32 val)
 {
-	mqnic_write_register(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_RX_CTRL);
+	MqnicWriteRegister(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_RX_CTRL);
 }
 EXPORT_SYMBOL(mqnic_port_set_rx_ctrl);
 
@@ -126,7 +126,7 @@ EXPORT_SYMBOL(mqnic_port_get_fc_ctrl);
 
 void mqnic_port_set_fc_ctrl(struct mqnic_port *port, u32 val)
 {
-	mqnic_write_register(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_FC_CTRL);
+	MqnicWriteRegister(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_FC_CTRL);
 }
 EXPORT_SYMBOL(mqnic_port_set_fc_ctrl);
 
@@ -138,7 +138,7 @@ EXPORT_SYMBOL(mqnic_port_get_lfc_ctrl);
 
 void mqnic_port_set_lfc_ctrl(struct mqnic_port *port, u32 val)
 {
-	mqnic_write_register(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_LFC_CTRL);
+	MqnicWriteRegister(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_LFC_CTRL);
 }
 EXPORT_SYMBOL(mqnic_port_set_lfc_ctrl);
 
@@ -150,6 +150,6 @@ EXPORT_SYMBOL(mqnic_port_get_pfc_ctrl);
 
 void mqnic_port_set_pfc_ctrl(struct mqnic_port *port, int index, u32 val)
 {
-	mqnic_write_register(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL0 + index*4);
+	MqnicWriteRegister(val, port->port_ctrl_rb->regs + MQNIC_RB_PORT_CTRL_REG_PFC_CTRL0 + index * 4);
 }
 EXPORT_SYMBOL(mqnic_port_set_pfc_ctrl);

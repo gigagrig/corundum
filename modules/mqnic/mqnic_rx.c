@@ -77,26 +77,26 @@ int mqnic_open_rx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	ring->prod_ptr = 0;
 	ring->cons_ptr = 0;
 
-	mqnic_log("mqnic_open_rx_ring 0x%x\n", (u32)(u64)(ring->hw_addr - g_base_reg_addr));
+	MqnicLog("mqnic_open_rx_ring 0x%x\n", (u32)(u64)(ring->hw_addr - g_base_reg_addr));
 	// deactivate queue
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set base address
-	mqnic_write_register((ring->buf_dma_addr & 0xfffff000),
-			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 0);
-	mqnic_write_register(ring->buf_dma_addr >> 32,
-			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 4);
+	MqnicWriteRegister((ring->buf_dma_addr & 0xfffff000),
+	                   ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 0);
+	MqnicWriteRegister(ring->buf_dma_addr >> 32,
+	                   ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 4);
 	// set size
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_SIZE | ilog2(ring->size) | (ring->log_desc_block_size << 8),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_SIZE | ilog2(ring->size) | (ring->log_desc_block_size << 8),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set CQN
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_CQN | ring->cq->cqn,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_CQN | ring->cq->cqn,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set pointers
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_CONS_PTR | (ring->cons_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_CONS_PTR | (ring->cons_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 
 	ret = mqnic_refill_rx_buffers(ring);
 	if (ret) {
@@ -155,8 +155,8 @@ int mqnic_enable_rx_ring(struct mqnic_ring *ring)
 		return -EINVAL;
 
 	// enable queue
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 1,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 1,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 
 	ring->enabled = 1;
 
@@ -167,8 +167,8 @@ void mqnic_disable_rx_ring(struct mqnic_ring *ring)
 {
 	// disable queue
 	if (ring->hw_addr) {
-		mqnic_write_register(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
-				ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+		MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
+		                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	}
 
 	ring->enabled = 0;
@@ -191,8 +191,8 @@ void mqnic_rx_read_cons_ptr(struct mqnic_ring *ring)
 
 void mqnic_rx_write_prod_ptr(struct mqnic_ring *ring)
 {
-	mqnic_write_register(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 }
 
 void mqnic_free_rx_desc(struct mqnic_ring *ring, int index)

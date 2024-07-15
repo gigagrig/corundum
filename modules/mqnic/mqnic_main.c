@@ -64,7 +64,7 @@ char *g_log_buf = 0;
 size_t g_log_buf_size = 0;
 size_t g_log_pos = 0;
 
-void mqnic_log(const char* fmt, ...)
+void MqnicLog(const char* fmt, ...)
 {
 	int n;
 	va_list args;
@@ -76,7 +76,7 @@ void mqnic_log(const char* fmt, ...)
 		g_log_pos = 0;
 }
 
-void mqnic_write_register(u32 val, void __iomem *addr)
+void MqnicWriteRegister(u32 val, void __iomem *addr)
 {
 	int n;
 
@@ -543,12 +543,12 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
 
-	mq_free_char_dev(mqnic->char_reg_dev);
-	mq_free_char_dev(mqnic->char_app_dev);
-	mq_free_char_dev(mqnic->char_ram_dev);
-	mq_free_log_char_dev(mqnic->char_log_dev);
+	FreeBarCharDevice(mqnic->char_reg_dev);
+	FreeBarCharDevice(mqnic->char_app_dev);
+	FreeBarCharDevice(mqnic->char_ram_dev);
+	FreeLogCharDevice(mqnic->char_log_dev);
 	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
-		mq_free_dma_char_dev(mqnic->char_dma_dev[k]);
+		FreeDmaCharDevice(mqnic->char_dma_dev[k]);
 	g_log_buf = 0;
 	g_log_buf_size = 0;
 
@@ -726,11 +726,11 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// char device
 	mqnic->char_ram_dev = 0;
 	mqnic->char_app_dev = 0;
-	mqnic->char_reg_dev = create_mq_char_device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
+	mqnic->char_reg_dev = CreateCharBar0Device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
 	if (!mqnic->char_reg_dev)
 		goto fail_reg_dev;
 
-	mqnic->char_log_dev = create_mq_char_log_device("mqnic_log", 1);
+	mqnic->char_log_dev = CreateCharLoggerDevice("MqnicLog", 1);
 	if (!mqnic->char_log_dev)
 		goto fail_char_log_dev;
 
@@ -745,7 +745,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	{
 		mqnic_dma_dev_name[9] = k + '0';
 		mqnic_dma_dev_name[10] = 0;
-		mqnic->char_dma_dev[k] = create_mq_char_dma(mqnic, mqnic_dma_dev_name, 2 + k);
+		mqnic->char_dma_dev[k] = CreateCharDMADevice(mqnic, mqnic_dma_dev_name, 2 + k);
 		if (!mqnic->char_dma_dev[k])
 			goto fail_dma_char_dev;
 	}
@@ -763,16 +763,16 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 fail_common_probe:
 	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
 	{
-		mq_free_dma_char_dev(mqnic->char_dma_dev[k]);
+		FreeDmaCharDevice(mqnic->char_dma_dev[k]);
 		mqnic->char_dma_dev[k] = 0;
 	}
 
 fail_dma_char_dev:
-	mq_free_log_char_dev(mqnic->char_log_dev);
+	FreeLogCharDevice(mqnic->char_log_dev);
 	mqnic->char_log_dev = 0;
 
 fail_char_log_dev:
-	mq_free_char_dev(mqnic->char_reg_dev);
+	FreeBarCharDevice(mqnic->char_reg_dev);
 	mqnic->char_ram_dev = 0;
 
 // error handling
@@ -979,7 +979,7 @@ static int __init mqnic_init(void)
 
 	printk(KERN_INFO "mqnic_init start\n");
 
-	rc = mq_cdev_init();
+	rc = CharDevicesInit();
 	if (rc)
 		goto err;
 	printk(KERN_INFO "mqnic_init mq_cdev_init succeed\n");
@@ -1015,7 +1015,7 @@ static void __exit mqnic_exit(void)
 	pci_unregister_driver(&mqnic_pci_driver);
 #endif
 
-	mqnic_cdev_cleanup();
+	CharDevicesCleanup();
 }
 
 module_init(mqnic_init);

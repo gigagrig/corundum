@@ -540,11 +540,11 @@ static void mqnic_eq_status_timeout(struct timer_list *timer)
 
 	++g_eq_status_times;
 	if (g_eq_status_times % 10 == 0)
-		mqnic_log("mqnic_eq_status_timeout %i times, if_index = %i link_status = %u, eq_count = %u\n",
-		          g_eq_status_times,
-		          priv->interface->index,
-				  priv->link_status,
-				  priv->interface->eq_count);
+		MqnicLog("mqnic_eq_status_timeout %i times, if_index = %i link_status = %u, eq_count = %u\n",
+		         g_eq_status_times,
+		         priv->interface->index,
+		         priv->link_status,
+		         priv->interface->eq_count);
 
 	if (priv->link_status) {
 		for (i = 0; i < priv->interface->eq_count; ++i)

@@ -50,7 +50,7 @@ extern unsigned int mqnic_link_status_poll;
 
 struct mqnic_dev;
 struct mqnic_if;
-struct mq_char_dev;
+struct MqnicCharDevice;
 
 struct mqnic_res {
 	unsigned int count;
@@ -117,11 +117,11 @@ struct mqnic_dev {
 #endif
 	struct platform_device *pfdev;
 
-	struct mq_char_dev *char_reg_dev;
-	struct mq_char_dev *char_app_dev;
-	struct mq_char_dev *char_ram_dev;
-	struct mq_char_dev *char_log_dev;
-	struct mq_char_dev *char_dma_dev[MAX_CHAR_DMA__DEV_COUNT];
+	struct MqnicCharDevice *char_reg_dev;
+	struct MqnicCharDevice *char_app_dev;
+	struct MqnicCharDevice *char_ram_dev;
+	struct MqnicCharDevice *char_log_dev;
+	struct MqnicCharDevice *char_dma_dev[MAX_CHAR_DMA__DEV_COUNT];
 
 
 	resource_size_t hw_regs_size;
@@ -474,7 +474,7 @@ struct mqnic_priv {
 	struct i2c_client *mod_i2c_client;
 };
 
-struct mq_char_dev {
+struct MqnicCharDevice {
 	u8 __iomem *bar;	/* addresses for mapped BARs */
 	resource_size_t bar_size;
 	struct mqnic_dev *mqniq;
@@ -487,17 +487,12 @@ struct mq_char_dev {
 	struct cdev cdev;
 };
 
-struct MqniqDevSharedMemory
-{
-	char *log;
-};
-
 
 // mqnic_main.c
 extern u64 g_base_reg_addr;
 extern u64 g_reg_size;
-void mqnic_log(const char* fmt, ...);
-void mqnic_write_register(u32 val, void __iomem *addr);
+void MqnicLog(const char* fmt, ...);
+void MqnicWriteRegister(u32 val, void __iomem *addr);
 
 // mqnic_devlink.c
 struct devlink *mqnic_devlink_alloc(struct device *dev);
@@ -677,14 +672,14 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 
 //char device
 //
-struct mq_char_dev *create_mq_char_device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
-struct mq_char_dev *create_mq_char_log_device(const char* name, int num);
-struct mq_char_dev *create_mq_char_dma(struct mqnic_dev *mqnic, const char* name, int num);
-void mq_free_char_dev(struct mq_char_dev *char_dev);
-void mq_free_dma_char_dev(struct mq_char_dev *char_dev);
-void mq_free_log_char_dev(struct mq_char_dev *char_dev);
-int mq_cdev_init(void);
-void mqnic_cdev_cleanup(void);
+struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
+struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num);
+struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name, int num);
+void FreeBarCharDevice(struct MqnicCharDevice *char_dev);
+void FreeDmaCharDevice(struct MqnicCharDevice *char_dev);
+void FreeLogCharDevice(struct MqnicCharDevice *char_dev);
+int CharDevicesInit(void);
+void CharDevicesCleanup(void);
 
 
 #endif /* MQNIC_H */

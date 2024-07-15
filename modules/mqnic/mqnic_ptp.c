@@ -53,8 +53,8 @@ static int mqnic_phc_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	else
 		adj = nom_per_fns + adj;
 
-	mqnic_write_register(adj & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_PERIOD_FNS);
-	mqnic_write_register(adj >> 32, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_PERIOD_NS);
+	MqnicWriteRegister(adj & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_PERIOD_FNS);
+	MqnicWriteRegister(adj >> 32, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_PERIOD_NS);
 
 	dev_dbg(mdev->dev, "%s adj: 0x%llx", __func__, adj);
 
@@ -94,9 +94,9 @@ static int mqnic_phc_settime(struct ptp_clock_info *ptp, const struct timespec64
 {
 	struct mqnic_dev *mdev = container_of(ptp, struct mqnic_dev, ptp_clock_info);
 
-	mqnic_write_register(ts->tv_nsec, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_NS);
-	mqnic_write_register(ts->tv_sec & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_SEC_L);
-	mqnic_write_register(ts->tv_sec >> 32, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_SEC_H);
+	MqnicWriteRegister(ts->tv_nsec, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_NS);
+	MqnicWriteRegister(ts->tv_sec & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_SEC_L);
+	MqnicWriteRegister(ts->tv_sec >> 32, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_SET_TOD_SEC_H);
 
 	return 0;
 }
@@ -113,7 +113,7 @@ static int mqnic_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
 		ts = timespec64_add(ts, ns_to_timespec64(delta));
 		mqnic_phc_settime(ptp, &ts);
 	} else {
-		mqnic_write_register(delta & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_OFFSET_TOD_NS);
+		MqnicWriteRegister(delta & 0xffffffff, mdev->phc_rb->regs + MQNIC_RB_PHC_REG_OFFSET_TOD_NS);
 	}
 
 	return 0;
@@ -134,7 +134,7 @@ static int mqnic_phc_perout(struct ptp_clock_info *ptp, int on, struct ptp_perou
 		return -EINVAL;
 
 	if (!on) {
-		mqnic_write_register(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_CTRL);
+		MqnicWriteRegister(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_CTRL);
 
 		return 0;
 	}
@@ -157,22 +157,22 @@ static int mqnic_phc_perout(struct ptp_clock_info *ptp, int on, struct ptp_perou
 	dev_info(mdev->dev, "%s: period: %lld.%09d", __func__, period_sec, period_nsec);
 	dev_info(mdev->dev, "%s: width: %lld.%09d", __func__, width_sec, width_nsec);
 
-	mqnic_write_register(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_FNS);
-	mqnic_write_register(start_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_NS);
-	mqnic_write_register(start_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_SEC_L);
-	mqnic_write_register(start_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_SEC_H);
+	MqnicWriteRegister(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_FNS);
+	MqnicWriteRegister(start_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_NS);
+	MqnicWriteRegister(start_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_SEC_L);
+	MqnicWriteRegister(start_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_START_SEC_H);
 
-	mqnic_write_register(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_FNS);
-	mqnic_write_register(period_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_NS);
-	mqnic_write_register(period_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_SEC_L);
-	mqnic_write_register(period_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_SEC_H);
+	MqnicWriteRegister(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_FNS);
+	MqnicWriteRegister(period_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_NS);
+	MqnicWriteRegister(period_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_SEC_L);
+	MqnicWriteRegister(period_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_PERIOD_SEC_H);
 
-	mqnic_write_register(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_FNS);
-	mqnic_write_register(width_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_NS);
-	mqnic_write_register(width_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_SEC_L);
-	mqnic_write_register(width_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_SEC_H);
+	MqnicWriteRegister(0, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_FNS);
+	MqnicWriteRegister(width_nsec, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_NS);
+	MqnicWriteRegister(width_sec & 0xffffffff, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_SEC_L);
+	MqnicWriteRegister(width_sec >> 32, rb->regs + MQNIC_RB_PHC_PEROUT_REG_WIDTH_SEC_H);
 
-	mqnic_write_register(1, rb->regs + MQNIC_RB_PHC_PEROUT_REG_CTRL);
+	MqnicWriteRegister(1, rb->regs + MQNIC_RB_PHC_PEROUT_REG_CTRL);
 
 	return 0;
 }

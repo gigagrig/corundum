@@ -88,27 +88,27 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 
 	memset(eq->buf, 1, eq->buf_size);
 
-	mqnic_log("mqnic_open_eq 0x%x\n", (u32)(u64)(eq->hw_addr - g_base_reg_addr));
+	MqnicLog("mqnic_open_eq 0x%x\n", (u32)(u64)(eq->hw_addr - g_base_reg_addr));
 	// deactivate queue
-	mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set base address
-	mqnic_write_register((eq->buf_dma_addr & 0xfffff000),
-			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 0);
-	mqnic_write_register(eq->buf_dma_addr >> 32,
-			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 4);
+	MqnicWriteRegister((eq->buf_dma_addr & 0xfffff000),
+	                   eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 0);
+	MqnicWriteRegister(eq->buf_dma_addr >> 32,
+	                   eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 4);
 	// set size
-	mqnic_write_register(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set IRQN
-	mqnic_write_register(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set pointers
-	mqnic_write_register(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
-	mqnic_write_register(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// activate queue
-	mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 
 	eq->enabled = 1;
 
@@ -126,7 +126,7 @@ void mqnic_close_eq(struct mqnic_eq *eq)
 
 	if (eq->hw_addr) {
 		// deactivate queue
-		mqnic_write_register(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+		MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	}
 
 	// unregister interrupt
@@ -188,8 +188,8 @@ void mqnic_eq_write_cons_ptr(struct mqnic_eq *eq)
 {
 	//u32 val = MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK);
 	//dev_info(eq->dev, "mqnic_eq_write_cons_ptr (Base+0x08 Control/status) <- 0x%08x", val);
-	mqnic_write_register(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_arm_eq(struct mqnic_eq *eq)
@@ -199,7 +199,7 @@ void mqnic_arm_eq(struct mqnic_eq *eq)
 		return;
 	//val = MQNIC_EQ_CMD_SET_ARM | 1;
 	//dev_info(eq->dev, "mqnic_arm_eq (Base+0x08 Control/status) <- 0x%08x", val);
-	mqnic_write_register(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_process_eq(struct mqnic_eq *eq)
@@ -276,8 +276,8 @@ int mqnic_poll_eq(struct mqnic_eq *eq)
 	reg_prod_ptr = ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) & MQNIC_EQ_PTR_MASK;
 	reg_cons_ptr = (ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) >> 16) & MQNIC_EQ_PTR_MASK;
 
-	mqnic_log("eqn = %i enabled = %i eq_cons_ptr = %u, reg_prod_ptr = %u, reg_cons_ptr = %u\n",
-	          eq->eqn, eq->enabled, eq->cons_ptr, reg_cons_ptr, reg_cons_ptr);
+	MqnicLog("eqn = %i enabled = %i eq_cons_ptr = %u, reg_prod_ptr = %u, reg_cons_ptr = %u\n",
+	         eq->eqn, eq->enabled, eq->cons_ptr, reg_cons_ptr, reg_cons_ptr);
 	eq_cons_ptr = eq->cons_ptr;
 	eq_index = eq_cons_ptr & eq->size_mask;
 
@@ -289,7 +289,7 @@ int mqnic_poll_eq(struct mqnic_eq *eq)
 	while (1) {
 		event = (struct mqnic_event *)(eq->buf + eq_index * eq->stride);
 
-		mqnic_log("event->phase = %i eq->size = %u\n", event->phase, eq->size);
+		MqnicLog("event->phase = %i eq->size = %u\n", event->phase, eq->size);
 		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
 			break;
 

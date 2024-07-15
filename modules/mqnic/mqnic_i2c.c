@@ -10,9 +10,9 @@ static void mqnic_i2c_set_scl(void *data, int state)
 	struct mqnic_i2c_bus *bus = data;
 
 	if (state)
-		mqnic_write_register(ioread32(bus->scl_out_reg) | bus->scl_out_mask, bus->scl_out_reg);
+		MqnicWriteRegister(ioread32(bus->scl_out_reg) | bus->scl_out_mask, bus->scl_out_reg);
 	else
-		mqnic_write_register(ioread32(bus->scl_out_reg) & ~bus->scl_out_mask, bus->scl_out_reg);
+		MqnicWriteRegister(ioread32(bus->scl_out_reg) & ~bus->scl_out_mask, bus->scl_out_reg);
 }
 
 static void mqnic_i2c_set_sda(void *data, int state)
@@ -20,9 +20,9 @@ static void mqnic_i2c_set_sda(void *data, int state)
 	struct mqnic_i2c_bus *bus = data;
 
 	if (state)
-		mqnic_write_register(ioread32(bus->sda_out_reg) | bus->sda_out_mask, bus->sda_out_reg);
+		MqnicWriteRegister(ioread32(bus->sda_out_reg) | bus->sda_out_mask, bus->sda_out_reg);
 	else
-		mqnic_write_register(ioread32(bus->sda_out_reg) & ~bus->sda_out_mask, bus->sda_out_reg);
+		MqnicWriteRegister(ioread32(bus->sda_out_reg) & ~bus->sda_out_mask, bus->sda_out_reg);
 }
 
 static int mqnic_i2c_get_scl(void *data)
