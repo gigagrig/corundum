@@ -9,6 +9,8 @@ static int mqnic_eq_int(struct notifier_block *nb, unsigned long action, void *d
 {
 	struct mqnic_eq *eq = container_of(nb, struct mqnic_eq, irq_nb);
 
+	//printk("mqnic_eq_int\n");
+
 	mqnic_process_eq(eq);
 	mqnic_arm_eq(eq);
 
@@ -86,32 +88,34 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 
 	memset(eq->buf, 1, eq->buf_size);
 
+	MqnicLog("mqnic_open_eq 0x%x\n", (u32)(u64)(eq->hw_addr - g_base_reg_addr));
 	// deactivate queue
-	iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set base address
-	iowrite32((eq->buf_dma_addr & 0xfffff000),
-			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 0);
-	iowrite32(eq->buf_dma_addr >> 32,
-			eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 4);
+	MqnicWriteRegister((eq->buf_dma_addr & 0xfffff000),
+	                   eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 0);
+	MqnicWriteRegister(eq->buf_dma_addr >> 32,
+	                   eq->hw_addr + MQNIC_EQ_BASE_ADDR_VF_REG + 4);
 	// set size
-	iowrite32(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_SIZE | ilog2(eq->size),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set IRQN
-	iowrite32(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_IRQN | eq->irq->index,
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set pointers
-	iowrite32(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
-	iowrite32(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_PROD_PTR | (eq->prod_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// activate queue
-	iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 
 	eq->enabled = 1;
 
 	return 0;
 
 fail:
+	dev_err(eq->dev, "mqnic_open_eq failed\n");
 	mqnic_close_eq(eq);
 	return ret;
 }
@@ -122,7 +126,7 @@ void mqnic_close_eq(struct mqnic_eq *eq)
 
 	if (eq->hw_addr) {
 		// deactivate queue
-		iowrite32(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+		MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	}
 
 	// unregister interrupt
@@ -182,16 +186,20 @@ void mqnic_eq_read_prod_ptr(struct mqnic_eq *eq)
 
 void mqnic_eq_write_cons_ptr(struct mqnic_eq *eq)
 {
-	iowrite32(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
-			eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	//u32 val = MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK);
+	//dev_info(eq->dev, "mqnic_eq_write_cons_ptr (Base+0x08 Control/status) <- 0x%08x", val);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_CONS_PTR | (eq->cons_ptr & MQNIC_EQ_PTR_MASK),
+	                   eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_arm_eq(struct mqnic_eq *eq)
 {
+	//u32 val;
 	if (!eq->enabled)
 		return;
-
-	iowrite32(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
+	//val = MQNIC_EQ_CMD_SET_ARM | 1;
+	//dev_info(eq->dev, "mqnic_arm_eq (Base+0x08 Control/status) <- 0x%08x", val);
+	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ARM | 1, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 }
 
 void mqnic_process_eq(struct mqnic_eq *eq)
@@ -211,6 +219,11 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 
 		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
 			break;
+
+		//dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x\n",
+		//         __func__, interface->index, eq->eqn, eq_index,
+		//         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
+
 
 		dma_rmb();
 
@@ -248,3 +261,82 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 	eq->cons_ptr = eq_cons_ptr;
 	mqnic_eq_write_cons_ptr(eq);
 }
+
+int mqnic_poll_eq(struct mqnic_eq *eq)
+{
+	struct mqnic_if *interface = eq->interface;
+	struct mqnic_event *event;
+	struct mqnic_cq *cq;
+	u32 eq_index;
+	u32 eq_cons_ptr;
+	u32 reg_prod_ptr;
+	u32 reg_cons_ptr;
+	int done = 0;
+
+	reg_prod_ptr = ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) & MQNIC_EQ_PTR_MASK;
+	reg_cons_ptr = (ioread32(eq->hw_addr + MQNIC_EQ_PTR_REG) >> 16) & MQNIC_EQ_PTR_MASK;
+
+	MqnicLog("eqn = %i enabled = %i eq_cons_ptr = %u, reg_prod_ptr = %u, reg_cons_ptr = %u\n",
+	         eq->eqn, eq->enabled, eq->cons_ptr, reg_cons_ptr, reg_cons_ptr);
+	eq_cons_ptr = eq->cons_ptr;
+	eq_index = eq_cons_ptr & eq->size_mask;
+
+	if (reg_cons_ptr != 0 || reg_prod_ptr != 0)
+	{
+		dev_info(eq->dev, "Hallelujah! reg_prod_ptr = %u, reg_cons_ptr = %u\n", reg_prod_ptr, reg_cons_ptr);
+	}
+
+	while (1) {
+		event = (struct mqnic_event *)(eq->buf + eq_index * eq->stride);
+
+		MqnicLog("event->phase = %i eq->size = %u\n", event->phase, eq->size);
+		if (!!(event->phase & cpu_to_le32(0x80000000)) == !!(eq_cons_ptr & eq->size))
+			break;
+
+		dev_info(eq->dev, "%s on IF %d EQ %d eq_index %u | event phase: 0x%x source: 0x%x type: 0x%x",
+		         __func__, interface->index, eq->eqn, eq_index,
+		         le32_to_cpu(event->phase), le16_to_cpu(event->source), le16_to_cpu(event->type));
+
+
+		dma_rmb();
+
+		if (event->type == MQNIC_EVENT_TYPE_CPL) {
+			// completion event
+			rcu_read_lock();
+			cq = radix_tree_lookup(&eq->cq_table, le16_to_cpu(event->source));
+			rcu_read_unlock();
+
+			if (likely(cq)) {
+				if (likely(cq->handler))
+					cq->handler(cq);
+			} else {
+				dev_err(eq->dev, "%s on IF %d EQ %d: unknown event source %d (index %d, type %d)",
+				        __func__, interface->index, eq->eqn, le16_to_cpu(event->source),
+				        eq_index, le16_to_cpu(event->type));
+				print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1,
+				               event, MQNIC_EVENT_SIZE, true);
+			}
+		} else {
+			dev_err(eq->dev, "%s on IF %d EQ %d: unknown event type %d (index %d, source %d)",
+			        __func__, interface->index, eq->eqn, le16_to_cpu(event->type),
+			        eq_index, le16_to_cpu(event->source));
+			print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1,
+			               event, MQNIC_EVENT_SIZE, true);
+		}
+
+		done++;
+
+		eq_cons_ptr++;
+		eq_index = eq_cons_ptr & eq->size_mask;
+	}
+
+	if (done == 0)
+		return done;
+
+	// update EQ consumer pointer
+	eq->cons_ptr = eq_cons_ptr;
+	mqnic_eq_write_cons_ptr(eq);
+
+	return done;
+}
+

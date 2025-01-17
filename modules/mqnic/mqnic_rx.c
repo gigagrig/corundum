@@ -77,25 +77,26 @@ int mqnic_open_rx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	ring->prod_ptr = 0;
 	ring->cons_ptr = 0;
 
+	MqnicLog("mqnic_open_rx_ring 0x%x\n", (u32)(u64)(ring->hw_addr - g_base_reg_addr));
 	// deactivate queue
-	iowrite32(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set base address
-	iowrite32((ring->buf_dma_addr & 0xfffff000),
-			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 0);
-	iowrite32(ring->buf_dma_addr >> 32,
-			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 4);
+	MqnicWriteRegister((ring->buf_dma_addr & 0xfffff000),
+	                   ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 0);
+	MqnicWriteRegister(ring->buf_dma_addr >> 32,
+	                   ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 4);
 	// set size
-	iowrite32(MQNIC_QUEUE_CMD_SET_SIZE | ilog2(ring->size) | (ring->log_desc_block_size << 8),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_SIZE | ilog2(ring->size) | (ring->log_desc_block_size << 8),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set CQN
-	iowrite32(MQNIC_QUEUE_CMD_SET_CQN | ring->cq->cqn,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_CQN | ring->cq->cqn,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	// set pointers
-	iowrite32(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
-	iowrite32(MQNIC_QUEUE_CMD_SET_CONS_PTR | (ring->cons_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_CONS_PTR | (ring->cons_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 
 	ret = mqnic_refill_rx_buffers(ring);
 	if (ret) {
@@ -107,6 +108,8 @@ int mqnic_open_rx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 
 		goto fail;
 	}
+
+	printk(KERN_INFO "mqnic_open_rx_ring  size = %i, desc_block_size = %i\n", size, desc_block_size);
 
 	return 0;
 
@@ -152,8 +155,8 @@ int mqnic_enable_rx_ring(struct mqnic_ring *ring)
 		return -EINVAL;
 
 	// enable queue
-	iowrite32(MQNIC_QUEUE_CMD_SET_ENABLE | 1,
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 1,
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 
 	ring->enabled = 1;
 
@@ -164,8 +167,8 @@ void mqnic_disable_rx_ring(struct mqnic_ring *ring)
 {
 	// disable queue
 	if (ring->hw_addr) {
-		iowrite32(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
-				ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+		MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_ENABLE | 0,
+		                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 	}
 
 	ring->enabled = 0;
@@ -188,8 +191,8 @@ void mqnic_rx_read_cons_ptr(struct mqnic_ring *ring)
 
 void mqnic_rx_write_prod_ptr(struct mqnic_ring *ring)
 {
-	iowrite32(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
-			ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
+	MqnicWriteRegister(MQNIC_QUEUE_CMD_SET_PROD_PTR | (ring->prod_ptr & MQNIC_QUEUE_PTR_MASK),
+	                   ring->hw_addr + MQNIC_QUEUE_CTRL_STATUS_REG);
 }
 
 void mqnic_free_rx_desc(struct mqnic_ring *ring, int index)
@@ -308,6 +311,8 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 	int budget = napi_budget;
 	u32 len;
 
+	//printk(KERN_INFO "mqnic_process_rx_cq\n");
+
 	if (unlikely(!priv || !priv->port_up))
 		return done;
 
@@ -383,8 +388,10 @@ int mqnic_process_rx_cq(struct mqnic_cq *cq, int napi_budget)
 
 		rx_ring->packets++;
 		rx_ring->bytes += le16_to_cpu(cpl->len);
+		//printk(KERN_INFO "mqnic_process_rx_cq  packets = %llu, new_packet_len = %i\n", rx_ring->packets, le16_to_cpu(cpl->len));
 
-rx_drop:
+
+	rx_drop:
 		done++;
 
 		cq_cons_ptr++;
@@ -429,6 +436,8 @@ int mqnic_poll_rx_cq(struct napi_struct *napi, int budget)
 	int done;
 
 	done = mqnic_process_rx_cq(cq, budget);
+
+	//printk(KERN_INFO "mqnic_poll_rx_cq done = %i\n", done);
 
 	if (done == budget)
 		return done;

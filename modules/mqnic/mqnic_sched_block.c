@@ -27,6 +27,7 @@ struct mqnic_sched_block *mqnic_create_sched_block(struct mqnic_if *interface,
 
 	offset = ioread32(block_rb->regs + MQNIC_RB_SCHED_BLOCK_REG_OFFSET);
 
+	dev_info(dev, "sched_block %i registers:", index);
 	block->rb_list = mqnic_enumerate_reg_block_list(interface->hw_addr, offset, interface->hw_regs_size - offset);
 
 	if (!block->rb_list) {

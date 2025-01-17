@@ -21,7 +21,7 @@ struct mqnic_res *mqnic_create_res(unsigned int count, u8 __iomem *base, unsigne
     spin_lock_init(&res->lock);
 
     res->bmap = bitmap_zalloc(count, GFP_KERNEL);
-    if (!res) {
+    if (!res->bmap) {
         ret = -ENOMEM;
         goto fail;
     }

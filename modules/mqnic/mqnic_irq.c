@@ -9,6 +9,8 @@ static irqreturn_t mqnic_irq_handler(int irqn, void *data)
 {
 	struct mqnic_irq *irq = data;
 
+	//printk(KERN_INFO "mqnic_irq_handler irqn = %i, index = %i\n", irq->name, irqn, irq->index);
+
 	atomic_notifier_call_chain(&irq->nh, 0, NULL);
 
 	return IRQ_HANDLED;
@@ -27,6 +29,8 @@ int mqnic_irq_init_pcie(struct mqnic_dev *mdev)
 		dev_err(dev, "Failed to allocate IRQs");
 		return -ENOMEM;
 	}
+
+	dev_info(dev, "mqnic_irq_init_pcie dev = %s\n", mdev->name);
 
 	// Set up interrupts
 	for (k = 0; k < mdev->irq_count; k++) {
@@ -51,6 +55,7 @@ int mqnic_irq_init_pcie(struct mqnic_dev *mdev)
 
 		irq->index = k;
 		irq->irqn = pci_irq_vector(pdev, k);
+		dev_info(dev, "index = %i, irqn =  %i\n", k, irq->irqn);
 		mdev->irq[k] = irq;
 	}
 

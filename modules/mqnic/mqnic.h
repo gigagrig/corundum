@@ -40,6 +40,7 @@
 
 // default interval to poll port TX/RX status, in ms
 #define MQNIC_LINK_STATUS_POLL_MS 1000
+#define MQNIC_EQ_STATUS_POLL_MS 0
 
 extern unsigned int mqnic_num_eq_entries;
 extern unsigned int mqnic_num_txq_entries;
@@ -49,6 +50,7 @@ extern unsigned int mqnic_link_status_poll;
 
 struct mqnic_dev;
 struct mqnic_if;
+struct MqnicCharDevice;
 
 struct mqnic_res {
 	unsigned int count;
@@ -106,12 +108,21 @@ struct mqnic_adev {
 };
 #endif
 
+
+#define MAX_CHAR_DMA__DEV_COUNT 8
 struct mqnic_dev {
 	struct device *dev;
 #ifdef CONFIG_PCI
 	struct pci_dev *pdev;
 #endif
 	struct platform_device *pfdev;
+
+	struct MqnicCharDevice *char_reg_dev;
+	struct MqnicCharDevice *char_app_dev;
+	struct MqnicCharDevice *char_ram_dev;
+	struct MqnicCharDevice *char_log_dev;
+	struct MqnicCharDevice *char_dma_dev[MAX_CHAR_DMA__DEV_COUNT];
+
 
 	resource_size_t hw_regs_size;
 	phys_addr_t hw_regs_phys;
@@ -436,6 +447,7 @@ struct mqnic_priv {
 
 	unsigned int link_status;
 	struct timer_list link_status_timer;
+	struct timer_list eq_status_timer;
 
 	u32 txq_count;
 	u32 rxq_count;
@@ -462,7 +474,25 @@ struct mqnic_priv {
 	struct i2c_client *mod_i2c_client;
 };
 
+struct MqnicCharDevice {
+	u8 __iomem *bar;	/* addresses for mapped BARs */
+	resource_size_t bar_size;
+	struct mqnic_dev *mqniq;
+	struct device *sys_device;	/* sysfs device */
+	int major;
+	dev_t cdevno;
+	void *dev_buf;
+	u32 dev_buf_size;
+	dma_addr_t dma_handle;
+	struct cdev cdev;
+};
+
+
 // mqnic_main.c
+extern u64 g_base_reg_addr;
+extern u64 g_reg_size;
+void MqnicLog(const char* fmt, ...);
+void MqnicWriteRegister(u32 val, void __iomem *addr);
 
 // mqnic_devlink.c
 struct devlink *mqnic_devlink_alloc(struct device *dev);
@@ -585,6 +615,7 @@ void mqnic_eq_read_prod_ptr(struct mqnic_eq *eq);
 void mqnic_eq_write_cons_ptr(struct mqnic_eq *eq);
 void mqnic_arm_eq(struct mqnic_eq *eq);
 void mqnic_process_eq(struct mqnic_eq *eq);
+int mqnic_poll_eq(struct mqnic_eq *eq);
 
 // mqnic_cq.c
 struct mqnic_cq *mqnic_create_cq(struct mqnic_if *interface);
@@ -636,5 +667,19 @@ int mqnic_poll_rx_cq(struct napi_struct *napi, int budget);
 
 // mqnic_ethtool.c
 extern const struct ethtool_ops mqnic_ethtool_ops;
+
+
+
+//char device
+//
+struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
+struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num);
+struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name, int num);
+void FreeBarCharDevice(struct MqnicCharDevice *char_dev);
+void FreeDmaCharDevice(struct MqnicCharDevice *char_dev);
+void FreeLogCharDevice(struct MqnicCharDevice *char_dev);
+int CharDevicesInit(void);
+void CharDevicesCleanup(void);
+
 
 #endif /* MQNIC_H */

@@ -33,11 +33,15 @@ int mqnic_start_port(struct net_device *ndev)
 		cq = mqnic_create_cq(iface);
 		if (IS_ERR_OR_NULL(cq)) {
 			ret = PTR_ERR(cq);
+			printk(KERN_INFO "mqnic_create_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
 		ret = mqnic_open_cq(cq, iface->eq[k % iface->eq_count], priv->rx_ring_size);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_cq failed ret = %i\n", ret);
+
 			mqnic_destroy_cq(cq);
 			goto fail;
 		}
@@ -55,6 +59,7 @@ int mqnic_start_port(struct net_device *ndev)
 		q = mqnic_create_rx_ring(iface);
 		if (IS_ERR_OR_NULL(q)) {
 			ret = PTR_ERR(q);
+			printk(KERN_INFO "mqnic_create_rx_ring failed ret = %i\n", ret);
 			mqnic_destroy_cq(cq);
 			goto fail;
 		}
@@ -67,6 +72,7 @@ int mqnic_start_port(struct net_device *ndev)
 
 		ret = mqnic_open_rx_ring(q, priv, cq, priv->rx_ring_size, 1);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_rx_ring failed ret = %i\n", ret);
 			mqnic_destroy_rx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -76,6 +82,8 @@ int mqnic_start_port(struct net_device *ndev)
 		ret = radix_tree_insert(&priv->rxq_table, k, q);
 		up_write(&priv->rxq_table_sem);
 		if (ret) {
+			printk(KERN_INFO "radix_tree_insert failed ret = %i\n", ret);
+
 			mqnic_destroy_rx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -88,12 +96,16 @@ int mqnic_start_port(struct net_device *ndev)
 		cq = mqnic_create_cq(iface);
 		if (IS_ERR_OR_NULL(cq)) {
 			ret = PTR_ERR(cq);
+			printk(KERN_INFO "mqnic_create_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
 		ret = mqnic_open_cq(cq, iface->eq[k % iface->eq_count], priv->tx_ring_size);
 		if (ret) {
 			mqnic_destroy_cq(cq);
+			printk(KERN_INFO "mqnic_open_cq failed ret = %i\n", ret);
+
 			goto fail;
 		}
 
@@ -109,6 +121,8 @@ int mqnic_start_port(struct net_device *ndev)
 		// create TX queue
 		q = mqnic_create_tx_ring(iface);
 		if (IS_ERR_OR_NULL(q)) {
+			printk(KERN_INFO "mqnic_create_tx_ring failed");
+
 			ret = PTR_ERR(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -118,6 +132,8 @@ int mqnic_start_port(struct net_device *ndev)
 
 		ret = mqnic_open_tx_ring(q, priv, cq, priv->tx_ring_size, desc_block_size);
 		if (ret) {
+			printk(KERN_INFO "mqnic_open_tx_ring failed ret = %i\n", ret);
+
 			mqnic_destroy_tx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -127,6 +143,8 @@ int mqnic_start_port(struct net_device *ndev)
 		ret = radix_tree_insert(&priv->txq_table, k, q);
 		up_write(&priv->txq_table_sem);
 		if (ret) {
+			printk(KERN_INFO "radix_tree_insert(&priv->txq_table, k, q) failed ret = %i\n", ret);
+
 			mqnic_destroy_tx_ring(q);
 			mqnic_destroy_cq(cq);
 			goto fail;
@@ -175,8 +193,15 @@ int mqnic_start_port(struct net_device *ndev)
 		netif_carrier_on(ndev);
 	}
 
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		mod_timer(&priv->eq_status_timer, jiffies + msecs_to_jiffies(MQNIC_EQ_STATUS_POLL_MS));
+
 	mqnic_port_set_rx_ctrl(priv->port, MQNIC_PORT_RX_CTRL_EN);
 
+	dev_info(&ndev->dev, "Port RX ctrl: 0x%08x", mqnic_port_get_rx_ctrl(priv->port));
+	dev_info(&ndev->dev, "Port TX ctrl: 0x%08x", mqnic_port_get_tx_ctrl(priv->port));
+
+	printk(KERN_INFO "mqnic_start_port succeeded");
 	return 0;
 
 fail:
@@ -196,6 +221,8 @@ void mqnic_stop_port(struct net_device *ndev)
 
 	if (mqnic_link_status_poll)
 		del_timer_sync(&priv->link_status_timer);
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		del_timer_sync(&priv->eq_status_timer);
 
 	mqnic_port_set_rx_ctrl(priv->port, 0);
 
@@ -503,6 +530,34 @@ static const struct net_device_ops mqnic_netdev_ops = {
 #endif
 };
 
+static int g_eq_status_times = 0;
+
+static void mqnic_eq_status_timeout(struct timer_list *timer)
+{
+	u32 i;
+	int done;
+	struct mqnic_priv *priv = from_timer(priv, timer, eq_status_timer);
+
+	++g_eq_status_times;
+	if (g_eq_status_times % 10 == 0)
+		MqnicLog("mqnic_eq_status_timeout %i times, if_index = %i link_status = %u, eq_count = %u\n",
+		         g_eq_status_times,
+		         priv->interface->index,
+		         priv->link_status,
+		         priv->interface->eq_count);
+
+	if (priv->link_status) {
+		for (i = 0; i < priv->interface->eq_count; ++i)
+		{
+			struct mqnic_eq *eq =  priv->interface->eq[i];
+			done = mqnic_poll_eq(eq);
+			if (done > 0)
+				mqnic_arm_eq(eq);
+		}
+	}
+	mod_timer(&priv->eq_status_timer, jiffies + msecs_to_jiffies(MQNIC_EQ_STATUS_POLL_MS));
+}
+
 static void mqnic_link_status_timeout(struct timer_list *timer)
 {
 	struct mqnic_priv *priv = from_timer(priv, timer, link_status_timer);
@@ -648,6 +703,8 @@ struct net_device *mqnic_create_netdev(struct mqnic_if *interface, int index,
 	netif_carrier_off(ndev);
 	if (mqnic_link_status_poll)
 		timer_setup(&priv->link_status_timer, mqnic_link_status_timeout, 0);
+	if (MQNIC_EQ_STATUS_POLL_MS > 0)
+		timer_setup(&priv->eq_status_timer, mqnic_eq_status_timeout, 0);
 
 	ret = register_netdev(ndev);
 	if (ret) {

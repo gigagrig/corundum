@@ -39,8 +39,8 @@ MODULE_PARM_DESC(link_status_poll,
 
 #ifdef CONFIG_PCI
 static const struct pci_device_id mqnic_pci_id_table[] = {
-	{PCI_DEVICE(0x1234, 0x1001)},
-	{PCI_DEVICE(0x5543, 0x1001)},
+	{PCI_DEVICE(0x1234, 0x9034)},
+	{PCI_DEVICE(0x5543, 0x9034)},
 	{0 /* end */ }
 };
 
@@ -57,6 +57,46 @@ MODULE_DEVICE_TABLE(of, mqnic_of_id_table);
 
 static LIST_HEAD(mqnic_devices);
 static DEFINE_SPINLOCK(mqnic_devices_lock);
+
+u64 g_base_reg_addr = 0;
+u64 g_reg_size = 0;
+char *g_log_buf = 0;
+size_t g_log_buf_size = 0;
+size_t g_log_pos = 0;
+
+void MqnicLog(const char* fmt, ...)
+{
+	int n;
+	va_list args;
+	va_start(args, fmt);
+	n = vsnprintf(g_log_buf + g_log_pos, g_log_buf_size - g_log_pos, fmt, args);
+	va_end(args);
+	g_log_pos += n;
+	if (g_log_pos >= g_log_buf_size)
+		g_log_pos = 0;
+}
+
+void MqnicWriteRegister(u32 val, void __iomem *addr)
+{
+	int n;
+
+	iowrite32(val, addr);
+	if ((u64)addr < g_base_reg_addr || (u64)addr - g_base_reg_addr >= g_reg_size)
+	{
+		printk(KERN_INFO "mqnic_driver iowrite32 0x%llx = 0x%x", (u64)addr, val);
+		return;
+	}
+
+	if (!g_log_buf)
+		return;
+
+	n = snprintf(g_log_buf + g_log_pos, g_log_buf_size - g_log_pos,
+			 "MQNIC_REGISTER 0x%x = 0x%x\n", (u32)((u64)addr - g_base_reg_addr), val);
+	g_log_pos += n;
+	if (g_log_pos >= g_log_buf_size)
+		g_log_pos = 0;
+	//printk(KERN_INFO "MQNIC_REGISTER 0x%x = 0x%x", (u32)((u64)addr - g_base_reg_addr), val);
+}
 
 static unsigned int mqnic_get_free_id(void)
 {
@@ -245,6 +285,10 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 
 	int k = 0, l = 0;
 
+	printk("ilog2 1 = %i 2 = %i 3 = %i 4 = %i\n", ilog2(1), ilog2(2),  ilog2(3), ilog2(4));
+	printk("roundup_pow_of_two 1 = %lu 2 = %lu 3 = %lu 4 = %lu\n", roundup_pow_of_two(1), roundup_pow_of_two(2),  roundup_pow_of_two(3), roundup_pow_of_two(4));
+
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	devlink_register(devlink);
 #else
@@ -252,6 +296,7 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 #endif
 
 	// Enumerate registers
+	dev_info(dev, "device registers:");
 	mqnic->rb_list = mqnic_enumerate_reg_block_list(mqnic->hw_addr, 0, mqnic->hw_regs_size);
 	if (!mqnic->rb_list) {
 		dev_err(dev, "Failed to enumerate blocks");
@@ -498,6 +543,15 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
 
+	FreeBarCharDevice(mqnic->char_reg_dev);
+	FreeBarCharDevice(mqnic->char_app_dev);
+	FreeBarCharDevice(mqnic->char_ram_dev);
+	FreeLogCharDevice(mqnic->char_log_dev);
+	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
+		FreeDmaCharDevice(mqnic->char_dma_dev[k]);
+	g_log_buf = 0;
+	g_log_buf_size = 0;
+
 	devlink_unregister(devlink);
 }
 
@@ -505,10 +559,12 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int ret = 0;
+	int k;
 	struct mqnic_dev *mqnic;
 	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct pci_dev *bridge = pci_upstream_bridge(pdev);
+	char mqnic_dma_dev_name[32];
 
 	dev_info(dev, DRIVER_NAME " PCI probe");
 	dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
@@ -619,6 +675,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	mqnic->ram_hw_regs_phys = pci_resource_start(pdev, 4);
 
 	// Map BARs
+	dev_info(dev, "dma_can_mmap = %i\n", dma_can_mmap(dev));
 	dev_info(dev, "Control BAR size: %llu", mqnic->hw_regs_size);
 	mqnic->hw_addr = pci_ioremap_bar(pdev, 0);
 	if (!mqnic->hw_addr) {
@@ -626,6 +683,8 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		dev_err(dev, "Failed to map control BAR");
 		goto fail_map_bars;
 	}
+	g_base_reg_addr = (u64)mqnic->hw_addr;
+	g_reg_size = mqnic->hw_regs_size;
 
 	if (mqnic->app_hw_regs_size) {
 		dev_info(dev, "Application BAR size: %llu", mqnic->app_hw_regs_size);
@@ -664,20 +723,64 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// Enable bus mastering for DMA
 	pci_set_master(pdev);
 
+	// char device
+	mqnic->char_ram_dev = 0;
+	mqnic->char_app_dev = 0;
+	mqnic->char_reg_dev = CreateCharBar0Device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
+	if (!mqnic->char_reg_dev)
+		goto fail_reg_dev;
+
+	mqnic->char_log_dev = CreateCharLoggerDevice("MqnicLog", 1);
+	if (!mqnic->char_log_dev)
+		goto fail_char_log_dev;
+
+	g_log_buf = mqnic->char_log_dev->dev_buf;
+	g_log_buf_size = mqnic->char_log_dev->dev_buf_size - 1; // last for 0
+	g_log_pos = 0;
+
+	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
+
+	memcpy(mqnic_dma_dev_name, "mqnic_dma", 10);
+	for (k = 0; k < 4; ++k)
+	{
+		mqnic_dma_dev_name[9] = k + '0';
+		mqnic_dma_dev_name[10] = 0;
+		mqnic->char_dma_dev[k] = CreateCharDMADevice(mqnic, mqnic_dma_dev_name, 2 + k);
+		if (!mqnic->char_dma_dev[k])
+			goto fail_dma_char_dev;
+	}
+
 	// Common init
 	ret = mqnic_common_probe(mqnic);
 	if (ret)
-		goto fail_common;
+		goto fail_common_probe;
+
+	dev_info(dev, DRIVER_NAME " PCI probe");
 
 	// probe complete
 	return 0;
 
-	// error handling
-fail_common:
+fail_common_probe:
+	for (k = 0; k < MAX_CHAR_DMA__DEV_COUNT; ++k)
+	{
+		FreeDmaCharDevice(mqnic->char_dma_dev[k]);
+		mqnic->char_dma_dev[k] = 0;
+	}
+
+fail_dma_char_dev:
+	FreeLogCharDevice(mqnic->char_log_dev);
+	mqnic->char_log_dev = 0;
+
+fail_char_log_dev:
+	FreeBarCharDevice(mqnic->char_reg_dev);
+	mqnic->char_ram_dev = 0;
+
+// error handling
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);
 fail_reset:
 fail_init_irq:
+fail_reg_dev:
 fail_map_bars:
 	if (mqnic->hw_addr)
 		pci_iounmap(pdev, mqnic->hw_addr);
@@ -835,6 +938,8 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
+	printk(KERN_INFO "mqnic_platform_probe succeeded\n");
+
 	// probe complete
 	return 0;
 
@@ -872,15 +977,26 @@ static int __init mqnic_init(void)
 {
 	int rc;
 
+	printk(KERN_INFO "mqnic_init start\n");
+
+	rc = CharDevicesInit();
+	if (rc)
+		goto err;
+	printk(KERN_INFO "mqnic_init mq_cdev_init succeed\n");
+
 #ifdef CONFIG_PCI
 	rc = pci_register_driver(&mqnic_pci_driver);
 	if (rc)
 		return rc;
 #endif
 
+	printk(KERN_INFO "mqnic_init pci_register_driver succeed\n");
+
 	rc = platform_driver_register(&mqnic_platform_driver);
 	if (rc)
 		goto err;
+
+	printk(KERN_INFO "mqnic_init platform_driver_register succeed\n");
 
 	return 0;
 
@@ -898,6 +1014,8 @@ static void __exit mqnic_exit(void)
 #ifdef CONFIG_PCI
 	pci_unregister_driver(&mqnic_pci_driver);
 #endif
+
+	CharDevicesCleanup();
 }
 
 module_init(mqnic_init);

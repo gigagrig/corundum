@@ -202,6 +202,8 @@ static int mqnic_generic_board_init(struct mqnic_dev *mqnic)
 	struct i2c_client *client;
 	int ret = 0;
 
+	printk(KERN_INFO "generic_board_ops");
+
 	mqnic->mod_i2c_client_count = 0;
 
 	if (mqnic_i2c_init(mqnic)) {
@@ -310,31 +312,47 @@ static int mqnic_generic_board_init(struct mqnic_dev *mqnic)
 		//     CH6: NC
 		//     CH7: NC
 
+		printk(KERN_INFO "generic_board_ops VCU118");
+
 		request_module("i2c_mux_pca954x");
 		request_module("at24");
 
 		// I2C adapter
 		adapter = mqnic_i2c_adapter_create(mqnic, 0);
 
+		dev_info(mqnic->dev, "mqnic_i2c_adapter_create finished");
+
 		// U28 TCA9548 I2C MUX
 		mux = create_i2c_client(adapter, "pca9548", 0x74);
 
-		// U145 QSFP1
+		dev_info(mqnic->dev, "create_i2c_client(adapter, \"pca9548\", 0x74) finished");
+
+			// U145 QSFP1
 		mqnic->mod_i2c_client[0] = create_i2c_client(get_i2c_mux_channel(mux, 2), "24c02", 0x50);
 
-		// U123 QSFP2
+		dev_info(mqnic->dev, " create_i2c_client(get_i2c_mux_channel(mux, 2), \"24c02\", 0x50) finished");
+
+			// U123 QSFP2
 		mqnic->mod_i2c_client[1] = create_i2c_client(get_i2c_mux_channel(mux, 3), "24c02", 0x50);
+
+		dev_info(mqnic->dev, "create_i2c_client(get_i2c_mux_channel(mux, 3), \"24c02\", 0x50) finished");
 
 		// U80 PCA9548 I2C MUX
 		mux = create_i2c_client(adapter, "pca9548", 0x75);
 
+		dev_info(mqnic->dev, "create_i2c_client(adapter, \"pca9548\", 0x75); finished");
+
 		// U12 I2C EEPROM
 		mqnic->eeprom_i2c_client = create_i2c_client(get_i2c_mux_channel(mux, 3), "24c08", 0x54);
+
+		dev_info(mqnic->dev, "create_i2c_client(get_i2c_mux_channel(mux, 3), \"24c08\", 0x54) finished");
 
 		mqnic->mod_i2c_client_count = 2;
 
 		// read MACs from EEPROM
 		init_mac_list_from_eeprom_base(mqnic, mqnic->eeprom_i2c_client, 0x20, MQNIC_MAX_IF);
+
+		dev_info(mqnic->dev, "init_mac_list_from_eeprom_base(mqnic, mqnic->eeprom_i2c_client, 0x20, MQNIC_MAX_IF) finished");
 
 		break;
 	case MQNIC_BOARD_ID_VCU1525:
@@ -788,6 +806,7 @@ static int mqnic_generic_board_init(struct mqnic_dev *mqnic)
 		dev_warn(mqnic->dev, "Unknown board ID, not performing any board-specific init");
 	}
 
+	dev_info(mqnic->dev, "mqnic_generic_board_init succeeded");
 	return ret;
 }
 
@@ -818,15 +837,15 @@ static struct mqnic_board_ops generic_board_ops = {
 
 static u32 mqnic_alveo_bmc_reg_read(struct mqnic_dev *mqnic, struct mqnic_reg_block *rb, u32 reg)
 {
-	iowrite32(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
+	MqnicWriteRegister(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
 	ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA); // dummy read
 	return ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
 }
 
 static void mqnic_alveo_bmc_reg_write(struct mqnic_dev *mqnic, struct mqnic_reg_block *rb, u32 reg, u32 val)
 {
-	iowrite32(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
-	iowrite32(val, rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
+	MqnicWriteRegister(reg, rb->regs + MQNIC_RB_ALVEO_BMC_REG_ADDR);
+	MqnicWriteRegister(val, rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA);
 	ioread32(rb->regs + MQNIC_RB_ALVEO_BMC_REG_DATA); // dummy read
 }
 
@@ -1000,8 +1019,8 @@ static int mqnic_gecko_bmc_write(struct mqnic_dev *mqnic, struct mqnic_reg_block
 	if (ret == -1)
 		return ret;
 
-	iowrite32(data, rb->regs + MQNIC_RB_GECKO_BMC_REG_DATA);
-	iowrite32(cmd << 16, rb->regs + MQNIC_RB_GECKO_BMC_REG_CMD);
+	MqnicWriteRegister(data, rb->regs + MQNIC_RB_GECKO_BMC_REG_DATA);
+	MqnicWriteRegister(cmd << 16, rb->regs + MQNIC_RB_GECKO_BMC_REG_CMD);
 
 	return 0;
 }

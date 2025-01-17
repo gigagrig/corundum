@@ -157,7 +157,6 @@ static long mqnic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 
 		return copy_to_user((void __user *)arg, &info, minsz) ? -EFAULT : 0;
-
 	}
 
 	return -EINVAL;
