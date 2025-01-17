@@ -555,6 +555,9 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	devlink_unregister(devlink);
 }
 
+#define MQNIC_NAME_MAX_SIZE 32
+#define MQNIC_DMA_DEV_COUNT 4
+
 #ifdef CONFIG_PCI
 static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
@@ -564,7 +567,10 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct pci_dev *bridge = pci_upstream_bridge(pdev);
-	char mqnic_dma_dev_name[32];
+	char mqnic_log_dev_name[2 * MQNIC_NAME_MAX_SIZE];
+	char mqnic_reg_dev_name[2 * MQNIC_NAME_MAX_SIZE];
+	char mqnic_dma_dev_name[2 * MQNIC_NAME_MAX_SIZE];
+	char* name_end = mqnic_log_dev_name;
 
 	dev_info(dev, DRIVER_NAME " PCI probe");
 	dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
@@ -644,7 +650,10 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// assign ID and add to list
 	mqnic_assign_id(mqnic);
 
-	dev_info(dev, "mqnic id = %u, mqnic name = %s", mqnic->id, mqnic->name);
+	snprintf(mqnic->name_by_pci_id, MQNIC_NAME_MAX_SIZE,
+			 "mqnic_%02x:%02x.%d",
+			 pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+	dev_info(dev, "mqnic id = %u, mqnic name = %s ; name_by_pci_id = %s", mqnic->id, mqnic->name, mqnic->name_by_pci_id);
 
 	// Disable ASPM
 	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
@@ -728,11 +737,15 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// char device
 	mqnic->char_ram_dev = 0;
 	mqnic->char_app_dev = 0;
-	mqnic->char_reg_dev = CreateCharBar0Device("mqnic_reg", 0, mqnic->hw_addr, mqnic->hw_regs_size);
+	name_end = strncpy(mqnic_reg_dev_name, mqnic->name_by_pci_id, MQNIC_NAME_MAX_SIZE);
+	name_end = strcpy(name_end, "_reg");
+	mqnic->char_reg_dev = CreateCharBar0Device(mqnic_reg_dev_name, 0, mqnic->hw_addr, mqnic->hw_regs_size);
 	if (!mqnic->char_reg_dev)
 		goto fail_reg_dev;
 
-	mqnic->char_log_dev = CreateCharLoggerDevice("MqnicLog", 1);
+	name_end = strncpy(mqnic_log_dev_name, mqnic->name_by_pci_id, MQNIC_NAME_MAX_SIZE);
+	name_end = strcpy (mqnic_log_dev_name, "_log");
+	mqnic->char_log_dev = CreateCharLoggerDevice(mqnic_log_dev_name, 1);
 	if (!mqnic->char_log_dev)
 		goto fail_char_log_dev;
 
@@ -742,11 +755,12 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	memset(mqnic->char_dma_dev, 0, sizeof(mqnic->char_dma_dev));
 
-	memcpy(mqnic_dma_dev_name, "mqnic_dma", 10);
+	name_end = strncpy(mqnic_dma_dev_name, mqnic->name_by_pci_id, MQNIC_NAME_MAX_SIZE);
+	name_end = strcpy(name_end, "_dma");
 	for (k = 0; k < 4; ++k)
 	{
-		mqnic_dma_dev_name[9] = k + '0';
-		mqnic_dma_dev_name[10] = 0;
+		name_end[0] = k + '0';
+		name_end[1] = 0;
 		mqnic->char_dma_dev[k] = CreateCharDMADevice(mqnic, mqnic_dma_dev_name, 2 + k);
 		if (!mqnic->char_dma_dev[k])
 			goto fail_dma_char_dev;

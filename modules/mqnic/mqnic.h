@@ -143,6 +143,7 @@ struct mqnic_dev {
 	u8 mac_list[MQNIC_MAX_IF][ETH_ALEN];
 
 	char name[16];
+	char name_by_pci_id[32];
 
 	int irq_count;
 	struct mqnic_irq *irq[MQNIC_MAX_IRQ];
