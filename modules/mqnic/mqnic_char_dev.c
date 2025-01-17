@@ -1,6 +1,7 @@
 #include "mqnic.h"
 
 static struct class *g_mqnic_class;
+static int char_device_num = 0;
 #define MQ_NODE_NAME	"mqnic_char"
 #define MQ_CHAR_DEV_COUNT 16
 
@@ -301,7 +302,7 @@ struct DmaBufferHeader
 
 #define MQNIC_DMA_BUF_SIZE 4*1024*1024
 
-struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name, int num)
+struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name)
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
@@ -344,7 +345,7 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 		goto free_cdev;
 	}
 
-	if (num == 0)
+	if (char_device_num == 0)
 	{
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
@@ -358,7 +359,8 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 
 	char_dev->major = MAJOR(dev);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	char_device_num += 1;
 
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
@@ -393,7 +395,7 @@ free_cdev:
 }
 
 #define MQNIC_LOG_BUF_SIZE 16*1024*1024
-struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num)
+struct MqnicCharDevice *CreateCharLoggerDevice(const char* name)
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
@@ -423,7 +425,7 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num)
 		goto free_cdev;
 	}
 
-	if (num == 0)
+	if (char_device_num == 0)
 	{
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
@@ -437,7 +439,8 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name, int num)
 
 	char_dev->major = MAJOR(dev);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	++char_device_num;
 
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
@@ -470,8 +473,7 @@ free_cdev:
 	return NULL;
 }
 
-struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num,
-                                             u8 __iomem *hw_addr, resource_size_t hw_regs_size)
+struct MqnicCharDevice *CreateCharBar0Device(const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size)
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
@@ -498,7 +500,7 @@ struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num,
 		goto free_cdev;
 	}
 
-	if (num == 0)
+	if (char_device_num == 0)
 	{
 		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
 		if (rv)
@@ -512,7 +514,8 @@ struct MqnicCharDevice *CreateCharBar0Device(const char* name, int num,
 
 	char_dev->major = MAJOR(dev);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	++char_device_num;
 
 	/* bring character device live */
 	rv = cdev_add(&char_dev->cdev, char_dev->cdevno, 1);
