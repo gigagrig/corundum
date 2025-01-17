@@ -340,7 +340,7 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 
 	if (rv)
 	{
-		pr_err("CreateCharDMADevice: kobject_set_name faied.\n");
+		pr_err("CreateCharDMADevice: kobject_set_name failed.\n");
 		goto free_cdev;
 	}
 

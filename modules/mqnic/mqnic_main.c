@@ -644,6 +644,8 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	// assign ID and add to list
 	mqnic_assign_id(mqnic);
 
+	dev_info(dev, "mqnic id = %u, mqnic name = %s", mqnic->id, mqnic->name);
+
 	// Disable ASPM
 	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
 			PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
