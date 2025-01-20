@@ -613,5 +613,7 @@ void CharDevicesCleanup(void)
 	if (g_mqnic_class)
 		class_destroy(g_mqnic_class);
 
+	g_mqnic_class = 0;
+
 	pr_info("MqnicCharDevice: mqnic_cdev_cleanup finished");
 }

@@ -1025,6 +1025,9 @@ err:
 
 static void __exit mqnic_exit(void)
 {
+
+	printk(KERN_INFO "mqnic_exit start\n");
+
 	platform_driver_unregister(&mqnic_platform_driver);
 
 #ifdef CONFIG_PCI
