@@ -744,7 +744,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	if (!char_log_dev)
 	{
 		char_log_dev = CreateCharLoggerDevice("mqnic_log");
-		if (char_log_dev)
+		if (!char_log_dev)
 			goto fail_char_log_dev;
 		g_log_buf = char_log_dev->dev_buf;
 		g_log_buf_size = char_log_dev->dev_buf_size - 1; // last for 0
