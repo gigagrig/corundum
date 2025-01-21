@@ -109,7 +109,10 @@ struct mqnic_adev {
 #endif
 
 
-#define MAX_CHAR_DMA__DEV_COUNT 8
+#define MAX_CHAR_DMA_DEV_COUNT 8
+#define MQNIC_NAME_MAX_SIZE 32
+#define CHAR_DEV_NAME_MAX_SIZE 64
+
 struct mqnic_dev {
 	struct device *dev;
 #ifdef CONFIG_PCI
@@ -118,10 +121,7 @@ struct mqnic_dev {
 	struct platform_device *pfdev;
 
 	struct MqnicCharDevice *char_reg_dev;
-	struct MqnicCharDevice *char_app_dev;
-	struct MqnicCharDevice *char_ram_dev;
-	struct MqnicCharDevice *char_log_dev;
-	struct MqnicCharDevice *char_dma_dev[MAX_CHAR_DMA__DEV_COUNT];
+	struct MqnicCharDevice *char_dma_dev[MAX_CHAR_DMA_DEV_COUNT];
 
 
 	resource_size_t hw_regs_size;
@@ -478,7 +478,7 @@ struct mqnic_priv {
 struct MqnicCharDevice {
 	u8 __iomem *bar;	/* addresses for mapped BARs */
 	resource_size_t bar_size;
-	struct mqnic_dev *mqniq;
+	struct mqnic_dev *mqnic;
 	struct device *sys_device;	/* sysfs device */
 	int major;
 	dev_t cdevno;
@@ -486,6 +486,7 @@ struct MqnicCharDevice {
 	u32 dev_buf_size;
 	dma_addr_t dma_handle;
 	struct cdev cdev;
+	char name[32];
 };
 
 
@@ -673,11 +674,10 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 
 //char device
 //
-struct MqnicCharDevice *CreateCharBar0Device(const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
+struct MqnicCharDevice *CreateCharBar0Device(struct mqnic_dev *mqnic, const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
 struct MqnicCharDevice *CreateCharLoggerDevice(const char* name);
 struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name);
-void FreeBarCharDevice(struct MqnicCharDevice *char_dev);
-void FreeDmaCharDevice(struct MqnicCharDevice *char_dev);
+void FreeCharDevice(struct mqnic_dev *mqnic, struct MqnicCharDevice *char_dev);
 void FreeLogCharDevice(struct MqnicCharDevice *char_dev);
 int CharDevicesInit(void);
 void CharDevicesCleanup(void);

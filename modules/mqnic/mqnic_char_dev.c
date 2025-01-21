@@ -270,7 +270,7 @@ int DmaCharMmap(struct file *file, struct vm_area_struct *vma)
 	pr_info("DmaCharMmap\n");
 	char_dev = (struct MqnicCharDevice *)file->private_data;
 	vma->vm_private_data = char_dev;
-	ret = dma_mmap_coherent(char_dev->mqniq->dev, vma, char_dev->dev_buf, char_dev->dma_handle, vma->vm_end - vma->vm_start);
+	ret = dma_mmap_coherent(char_dev->mqnic->dev, vma, char_dev->dev_buf, char_dev->dma_handle, vma->vm_end - vma->vm_start);
 	return 0;
 }
 
@@ -310,14 +310,14 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 	u8 *dma_buf;
 	struct DmaBufferHeader *dma_buf_header;
 
-	pr_info("CreateCharDMADevice %s", name);
+	dev_info(mqnic->dev, "CreateCharDMADevice %i : %s", char_device_num,  name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
 		return NULL;
 	memset(char_dev, 0, sizeof(*char_dev));
 
-	char_dev->mqniq = mqnic;
+	char_dev->mqnic = mqnic;
 	char_dev->cdev.owner = THIS_MODULE;
 	char_dev->bar = 0;
 	char_dev->bar_size = 0;
@@ -335,7 +335,9 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 	dma_buf_header->header_size = DMA_BUF_HEADER_SIZE;
 	dma_buf_header->dma_buf_handle = char_dev->dma_handle;
 	dma_buf_header->buffer_size = char_dev->dev_buf_size;
-	strncpy(dma_buf_header->name, name, DMA_BUF_NAME_SIZE);
+	strscpy(dma_buf_header->name, name, DMA_BUF_NAME_SIZE);
+	strscpy(char_dev->name, name, CHAR_DEV_NAME_MAX_SIZE);
+
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
@@ -401,7 +403,7 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name)
 	int rv;
 	dev_t dev;
 
-	pr_info("CreateCharLoggerDevice: %s", name);
+	pr_info("CreateCharLoggerDevice: %i : %s", char_device_num, name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -416,6 +418,7 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name)
 	if (!char_dev->dev_buf)
 		goto free_cdev;
 	char_dev->dev_buf_size = MQNIC_LOG_BUF_SIZE;
+	strscpy(char_dev->name, name, CHAR_DEV_NAME_MAX_SIZE);
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
@@ -473,13 +476,13 @@ free_cdev:
 	return NULL;
 }
 
-struct MqnicCharDevice *CreateCharBar0Device(const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size)
+struct MqnicCharDevice *CreateCharBar0Device(struct mqnic_dev *mqnic, const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size)
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
 	dev_t dev;
 
-	pr_info("MqnicCharDevice: CreateCharBar0Device %s", name);
+	dev_info(mqnic->dev, "CreateCharBar0Device %i : %s", char_device_num, name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
 
 	if (!char_dev)
@@ -491,6 +494,7 @@ struct MqnicCharDevice *CreateCharBar0Device(const char* name, u8 __iomem *hw_ad
 	char_dev->bar_size = hw_regs_size;
 	char_dev->dev_buf = 0;
 	char_dev->dev_buf_size = 0;
+	strscpy(char_dev->name, name, 32);
 
 	rv = kobject_set_name(&char_dev->cdev.kobj, name);
 
@@ -560,20 +564,11 @@ void DestroyCharDevice(struct MqnicCharDevice *char_dev)
 	unregister_chrdev_region(MKDEV(char_dev->major, 0), MQ_CHAR_DEV_COUNT);
 }
 
-void FreeBarCharDevice(struct MqnicCharDevice *char_dev)
+void FreeCharDevice(struct mqnic_dev *mqnic, struct MqnicCharDevice *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("MqnicCharDevice %u\n", char_dev->cdevno);
-	DestroyCharDevice(char_dev);
-	kfree(char_dev);
-}
-
-void FreeDmaCharDevice(struct MqnicCharDevice *char_dev)
-{
-	if (!char_dev)
-		return;
-	pr_info("FreeDmaCharDevice %u\n", char_dev->cdevno);
+	dev_info(mqnic->dev, "FreeDmaCharDevice %u : %s\n", char_dev->cdevno, char_dev->name);
 	//dma_free_coherent(char_dev->mqniq->dev, char_dev->dev_buf_size, char_dev->dev_buf, char_dev->dma_handle);
 	char_dev->dev_buf = 0;
 	DestroyCharDevice(char_dev);
@@ -584,7 +579,7 @@ void FreeLogCharDevice(struct MqnicCharDevice *char_dev)
 {
 	if (!char_dev)
 		return;
-	pr_info("FreeLogCharDevice %u\n", char_dev->cdevno);
+	pr_info("FreeLogCharDevice %u : %s\n", char_dev->cdevno, char_dev->name);
 	if (char_dev->dev_buf)
 	{
 		vfree(char_dev->dev_buf);
