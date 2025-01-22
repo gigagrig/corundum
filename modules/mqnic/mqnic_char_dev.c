@@ -603,5 +603,5 @@ void CharDevicesCleanup(void)
 
 	g_mqnic_class = 0;
 
-	pr_info("MqnicCharDevice: mqnic_cdev_cleanup finished");
+	pr_info("MqnicCharDevice: mqnic_cdev_cleanup finished\n");
 }
