@@ -2,8 +2,10 @@
 
 static struct class *g_mqnic_class;
 static int char_device_num = 0;
+static dev_t char_dev_region_num = 0;
 #define MQ_NODE_NAME	"mqnic_char"
 #define MQ_CHAR_DEV_COUNT 16
+
 
 
 int OpenChar(struct inode *inode, struct file *file)
@@ -245,6 +247,23 @@ int LogCharMmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+int AllocCharDevRegion()
+{
+	int rv;
+	rv = alloc_chrdev_region(&char_dev_region_num, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
+	if (rv)
+	{
+		pr_err("AllocCharDevRegion: unable to allocate cdev region %d.\n", rv);
+	}
+	return rv;
+}
+
+void UnregisterCharDevRegion()
+{
+	unregister_chrdev_region(MKDEV(MAJOR(char_device_num), 0), MQ_CHAR_DEV_COUNT);
+}
+
+
 
 static const struct file_operations ctrl_fops = {
 		.owner = THIS_MODULE,
@@ -306,7 +325,6 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
-	dev_t dev;
 	u8 *dma_buf;
 	struct DmaBufferHeader *dma_buf_header;
 
@@ -347,21 +365,12 @@ struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char*
 		goto free_cdev;
 	}
 
-	if (char_device_num == 0)
-	{
-		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
-		if (rv)
-		{
-			pr_err("CreateCharDMADevice: unable to allocate cdev region %d.\n", rv);
-			goto free_cdev;
-		}
-	}
 
 	cdev_init(&char_dev->cdev, &ctrl_dma_fops);
 
-	char_dev->major = MAJOR(dev);
+	char_dev->major = MAJOR(char_dev_region_num);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(char_dev_region_num) + char_device_num);
 	char_device_num += 1;
 
 	/* bring character device live */
@@ -401,7 +410,6 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name)
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
-	dev_t dev;
 
 	pr_info("CreateCharLoggerDevice: %i : %s", char_device_num, name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
@@ -428,21 +436,11 @@ struct MqnicCharDevice *CreateCharLoggerDevice(const char* name)
 		goto free_cdev;
 	}
 
-	if (char_device_num == 0)
-	{
-		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
-		if (rv)
-		{
-			pr_err("CreateCharBar0Device: unable to allocate cdev region %d.\n", rv);
-			goto free_cdev;
-		}
-	}
-
 	cdev_init(&char_dev->cdev, &ctrl_log_fops);
 
-	char_dev->major = MAJOR(dev);
+	char_dev->major = MAJOR(char_dev_region_num);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(char_dev_region_num) + char_device_num);
 	++char_device_num;
 
 	/* bring character device live */
@@ -480,7 +478,6 @@ struct MqnicCharDevice *CreateCharBar0Device(struct mqnic_dev *mqnic, const char
 {
 	struct MqnicCharDevice *char_dev;
 	int rv;
-	dev_t dev;
 
 	dev_info(mqnic->dev, "CreateCharBar0Device %i : %s", char_device_num, name);
 	char_dev = kmalloc(sizeof(*char_dev), GFP_KERNEL);
@@ -504,21 +501,11 @@ struct MqnicCharDevice *CreateCharBar0Device(struct mqnic_dev *mqnic, const char
 		goto free_cdev;
 	}
 
-	if (char_device_num == 0)
-	{
-		rv = alloc_chrdev_region(&dev, 0, MQ_CHAR_DEV_COUNT, MQ_NODE_NAME);
-		if (rv)
-		{
-			pr_err("CreateCharBar0Device: unable to allocate cdev region %d.\n", rv);
-			goto free_cdev;
-		}
-	}
-
 	cdev_init(&char_dev->cdev, &ctrl_fops);
 
-	char_dev->major = MAJOR(dev);
+	char_dev->major = MAJOR(char_dev_region_num);
 
-	char_dev->cdevno = MKDEV(char_dev->major, MINOR(dev) + char_device_num);
+	char_dev->cdevno = MKDEV(char_dev->major, MINOR(char_dev_region_num) + char_device_num);
 	++char_device_num;
 
 	/* bring character device live */
@@ -560,8 +547,6 @@ void DestroyCharDevice(struct MqnicCharDevice *char_dev)
 	if (char_dev->sys_device)
 		device_destroy(g_mqnic_class, char_dev->cdevno);
 	cdev_del(&char_dev->cdev);
-
-	unregister_chrdev_region(MKDEV(char_dev->major, 0), MQ_CHAR_DEV_COUNT);
 }
 
 void FreeCharDevice(struct mqnic_dev *mqnic, struct MqnicCharDevice *char_dev)
@@ -592,19 +577,26 @@ void FreeLogCharDevice(struct MqnicCharDevice *char_dev)
 
 int CharDevicesInit(void)
 {
+	int rv;
 	g_mqnic_class = class_create(THIS_MODULE, MQ_NODE_NAME);
-	if (IS_ERR(g_mqnic_class)) {
+	if (IS_ERR(g_mqnic_class))
+	{
 		pr_err("CharDevicesInit: failed to create class %s", MQ_NODE_NAME);
 		return -EINVAL;
 	}
-
+	rv = AllocCharDevRegion();
+	if (rv)
+		goto failed_alloc_char_region;
 	pr_info("MqnicCharDevice: CharDevicesInit finished");
-
 	return 0;
+failed_alloc_char_region:
+	return rv;
 }
 
 void CharDevicesCleanup(void)
 {
+	UnregisterCharDevRegion();
+
 	if (g_mqnic_class)
 		class_destroy(g_mqnic_class);
 

@@ -674,6 +674,8 @@ extern const struct ethtool_ops mqnic_ethtool_ops;
 
 //char device
 //
+int AllocCharDevRegion(void);
+void UnregisterCharDevRegion(void);
 struct MqnicCharDevice *CreateCharBar0Device(struct mqnic_dev *mqnic, const char* name, u8 __iomem *hw_addr, resource_size_t hw_regs_size);
 struct MqnicCharDevice *CreateCharLoggerDevice(const char* name);
 struct MqnicCharDevice *CreateCharDMADevice(struct mqnic_dev *mqnic, const char* name);
