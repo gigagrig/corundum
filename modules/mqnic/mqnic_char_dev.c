@@ -260,7 +260,8 @@ int AllocCharDevRegion()
 
 void UnregisterCharDevRegion()
 {
-	unregister_chrdev_region(MKDEV(MAJOR(char_device_num), 0), MQ_CHAR_DEV_COUNT);
+	pr_info("UnregisterCharDevRegion\n");
+	unregister_chrdev_region(MKDEV(MAJOR(char_dev_region_num), 0), MQ_CHAR_DEV_COUNT);
 }
 
 
@@ -587,7 +588,7 @@ int CharDevicesInit(void)
 	rv = AllocCharDevRegion();
 	if (rv)
 		goto failed_alloc_char_region;
-	pr_info("MqnicCharDevice: CharDevicesInit finished");
+	pr_info("CharDevicesInit: finished");
 	return 0;
 failed_alloc_char_region:
 	return rv;
