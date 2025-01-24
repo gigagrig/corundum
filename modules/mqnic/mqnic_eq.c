@@ -88,7 +88,6 @@ int mqnic_open_eq(struct mqnic_eq *eq, struct mqnic_irq *irq, int size)
 
 	memset(eq->buf, 1, eq->buf_size);
 
-	MqnicLog("mqnic_open_eq 0x%x\n", (u32)(u64)(eq->hw_addr - g_base_reg_addr));
 	// deactivate queue
 	MqnicWriteRegister(MQNIC_EQ_CMD_SET_ENABLE | 0, eq->hw_addr + MQNIC_EQ_CTRL_STATUS_REG);
 	// set base address

@@ -548,10 +548,10 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	FreeCharDevice(mqnic, mqnic->char_reg_dev);
 	FreeLogCharDevice(char_log_dev);
 	char_log_dev = 0;
-	for (k = 0; k < MAX_CHAR_DMA_DEV_COUNT; ++k)
-		FreeCharDevice(mqnic, mqnic->char_dma_dev[k]);
 	g_log_buf = 0;
 	g_log_buf_size = 0;
+	for (k = 0; k < MAX_CHAR_DMA_DEV_COUNT; ++k)
+		FreeCharDevice(mqnic, mqnic->char_dma_dev[k]);
 
 	devlink_unregister(devlink);
 }

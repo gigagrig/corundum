@@ -80,7 +80,7 @@ int mqnic_open_tx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	ring->cons_ptr = 0;
 
 	MqnicLog("mqnic_open_tx_ring 0x%x,  desc_size = %i -> %u, log_desc_block_size = %u\n",
-	         (u32)(u64)(ring->hw_addr - g_base_reg_addr),
+	         (u32)(u64)(ring->hw_addr - priv->mdev->hw_addr),
 	         desc_block_size, ring->desc_block_size, ring->log_desc_block_size);
 
 	// deactivate queue
