@@ -491,10 +491,9 @@ struct MqnicCharDevice {
 
 
 // mqnic_main.c
-extern u64 g_base_reg_addr;
-extern u64 g_reg_size;
 void MqnicLog(const char* fmt, ...);
 void MqnicWriteRegister(u32 val, void __iomem *addr);
+void MqnicLogWriteRegister(struct mqnic_dev *mdev,  u32 val, void __iomem *addr);
 
 // mqnic_devlink.c
 struct devlink *mqnic_devlink_alloc(struct device *dev);

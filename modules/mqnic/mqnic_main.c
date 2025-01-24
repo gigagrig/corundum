@@ -60,8 +60,6 @@ static DEFINE_SPINLOCK(mqnic_devices_lock);
 
 
 struct MqnicCharDevice *char_log_dev = 0;
-u64 g_base_reg_addr = 0;
-u64 g_reg_size = 0;
 char *g_log_buf = 0;
 size_t g_log_buf_size = 0;
 size_t g_log_pos = 0;
@@ -80,10 +78,15 @@ void MqnicLog(const char* fmt, ...)
 
 void MqnicWriteRegister(u32 val, void __iomem *addr)
 {
+	iowrite32(val, addr);
+}
+
+void MqnicLogWriteRegister(struct mqnic_dev *mdev,  u32 val, void __iomem *addr)
+{
 	int n;
 
 	iowrite32(val, addr);
-	if ((u64)addr < g_base_reg_addr || (u64)addr - g_base_reg_addr >= g_reg_size)
+	if ((u64)addr < (u64)mdev->hw_addr || (u64)addr - (u64)mdev->hw_addr >= mdev->hw_regs_size)
 	{
 		printk(KERN_INFO "mqnic_driver iowrite32 0x%llx = 0x%x", (u64)addr, val);
 		return;
@@ -93,11 +96,11 @@ void MqnicWriteRegister(u32 val, void __iomem *addr)
 		return;
 
 	n = snprintf(g_log_buf + g_log_pos, g_log_buf_size - g_log_pos,
-			 "MQNIC_REGISTER 0x%x = 0x%x\n", (u32)((u64)addr - g_base_reg_addr), val);
+	             "%s: 0x%x = 0x%x\n", mdev->name_by_pci_id, (u32)((u64)addr - (u64)mdev->hw_addr), val);
 	g_log_pos += n;
 	if (g_log_pos >= g_log_buf_size)
 		g_log_pos = 0;
-	//printk(KERN_INFO "MQNIC_REGISTER 0x%x = 0x%x", (u32)((u64)addr - g_base_reg_addr), val);
+	//printk(KERN_INFO "%s 0x%x = 0x%x", mdev->name_by_pci_id, (u32)((u64)addr - g_base_reg_addr), val);
 }
 
 static unsigned int mqnic_get_free_id(void)
@@ -693,8 +696,6 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		dev_err(dev, "Failed to map control BAR");
 		goto fail_map_bars;
 	}
-	g_base_reg_addr = (u64)mqnic->hw_addr;
-	g_reg_size = mqnic->hw_regs_size;
 
 	if (mqnic->app_hw_regs_size) {
 		dev_info(dev, "Application BAR size: %llu", mqnic->app_hw_regs_size);
