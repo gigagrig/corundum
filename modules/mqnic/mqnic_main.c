@@ -548,14 +548,6 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
 
-	FreeCharDevice(mqnic, mqnic->char_reg_dev);
-	FreeLogCharDevice(char_log_dev);
-	char_log_dev = 0;
-	g_log_buf = 0;
-	g_log_buf_size = 0;
-	for (k = 0; k < MAX_CHAR_DMA_DEV_COUNT; ++k)
-		FreeCharDevice(mqnic, mqnic->char_dma_dev[k]);
-
 	devlink_unregister(devlink);
 }
 
@@ -816,10 +808,19 @@ static void mqnic_pci_remove(struct pci_dev *pdev)
 {
 	struct mqnic_dev *mqnic = pci_get_drvdata(pdev);
 	struct devlink *devlink = priv_to_devlink(mqnic);
+	int k;
 
 	dev_info(&pdev->dev, DRIVER_NAME " PCI remove");
 
 	mqnic_common_remove(mqnic);
+
+	FreeCharDevice(mqnic, mqnic->char_reg_dev);
+	FreeLogCharDevice(char_log_dev);
+	char_log_dev = 0;
+	g_log_buf = 0;
+	g_log_buf_size = 0;
+	for (k = 0; k < MAX_CHAR_DMA_DEV_COUNT; ++k)
+		FreeCharDevice(mqnic, mqnic->char_dma_dev[k]);
 
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);
